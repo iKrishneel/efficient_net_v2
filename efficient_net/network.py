@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from copy import deepcopy
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -72,7 +74,7 @@ class MBConvX(nn.Module):
             in_channels=config.IN_CHANNELS,
             out_channels=inner_channels,
             kernel_size=1, stride=1,
-            padding=config.padding,
+            padding=0,
             groups=1, bias=False,
             bn_momentum=bn_momentum,
             bn_eps=bn_eps)
@@ -90,10 +92,10 @@ class MBConvX(nn.Module):
             out_channels=config.OUT_CHANNELS,            
             kernel_size=1, stride=1,
             groups=1, bias=False,
-            padding=config.padding,
+            padding=0,
             bn_momentum=bn_momentum,
             bn_eps=bn_eps)
-
+        
         activation = config.ACTIVATION
         self.conv_ip = ConvBNA(activation=activation, **ex_attrs)
         self.conv_dw = ConvBNA(activation=activation, **dw_attrs)
@@ -122,27 +124,30 @@ class EfficientNetBase(nn.Module):
         super(EfficientNetBase, self).__init__()
 
         modules = []
+        # modules = nn.ModuleList()
         for definition in model_definition:
             operator = definition['operator'].lower()
-            config = definition['config']
+            config1 = definition['config']
             layers = definition['layers']
 
-            out_channels = config.OUT_CHANNELS
+            out_channels = config1.OUT_CHANNELS
             for i in range(layers):
+                config = deepcopy(config1)
                 if i > 0:
                     config.IN_CHANNELS = out_channels
+                    config.STRIDES = 1
+
                 module = self._get_module(operator, config)
                 modules.append(module)
                 out_channels = config.OUT_CHANNELS
 
         self._network = nn.Sequential(*modules)
-        print(self._network)
+        # self._network = modules
+        # print(self._network)
 
     def forward(self, inputs):
         x = inputs
-        # x = self.conv1(x)
-        # x = self.mbconv1_1(x)
-        print(x.shape)
+        x = self._network(x)
         return x
         
     def _get_module(self, operator, config):
@@ -167,6 +172,8 @@ class EfficientNetBase(nn.Module):
             module = nn.AdaptiveAvgPool2d(config.OUT_CHANNELS)
         elif operator == 'dropout':
             module = nn.Dropout(config.DROPOUT_PROB)
+        elif operator == 'flatten':
+            module = nn.Flatten()
         else:
             raise TypeError('Unknown model type')
         return module
@@ -175,7 +182,7 @@ class EfficientNetBase(nn.Module):
 if __name__ == '__main__':
 
     import numpy as np
-    x = np.random.random((1, 3, 224, 224)).astype(np.float32)
+    x = np.random.random((10, 3, 224, 224)).astype(np.float32)
     y = torch.from_numpy(x)
 
     from efficient_net import model

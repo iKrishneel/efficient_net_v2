@@ -40,8 +40,8 @@ class MBConfig(object):
 
     @property
     def padding(self):
-        return max(self.KERNEL_SIZE - self.STRIDES, 0) // 2
-
+        return max(self.KERNEL_SIZE + 1 - self.STRIDES, 0) // 2
+        
     
 class ENConfig(object):
 
