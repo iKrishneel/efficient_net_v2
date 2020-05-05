@@ -15,7 +15,7 @@ class MBConfig(object):
 
     KERNEL_SIZE: int = 1
     
-    EXPANSION_FACTOR: int = 1
+    EXPANSION_FACTOR: int = 0
 
     HAS_BIAS: bool = False
     
@@ -27,7 +27,7 @@ class MBConfig(object):
 
     HAS_SE: bool = True
 
-    DROPOUT_PROB: float = 0.5
+    DROPOUT_PROB: float = 0.0
     
     ACTIVATION = Swish
 
@@ -38,9 +38,12 @@ class MBConfig(object):
         return self.ID_SKIP and \
           self.IN_CHANNELS == self.OUT_CHANNELS
 
+    @property
+    def padding(self):
+        return max(self.KERNEL_SIZE - self.STRIDES, 0) // 2
+
     
-@dataclass
-class ENConfig(MBConfig):
+class ENConfig(object):
 
     # MBConv config
     pass

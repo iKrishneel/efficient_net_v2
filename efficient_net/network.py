@@ -8,13 +8,13 @@ from efficient_net.activation import Swish
 from efficient_net.config import MBConfig
 
 
-class ConvBNR(nn.Module):
+class ConvBNA(nn.Module):
 
     def __init__(self,
                  use_bn: bool=True,
                  activation=None,
                  **kwargs: dict):
-        super(ConvBNR, self).__init__()
+        super(ConvBNA, self).__init__()
         self.bn = None
         self.activation = None
 
@@ -72,16 +72,17 @@ class MBConvX(nn.Module):
             in_channels=config.IN_CHANNELS,
             out_channels=inner_channels,
             kernel_size=1, stride=1,
-            padding=self.padding(1, 1),
+            padding=config.padding,
             groups=1, bias=False,
             bn_momentum=bn_momentum,
             bn_eps=bn_eps)
         dw_attrs = dict(
             in_channels=inner_channels,
             out_channels=inner_channels,
-            kernel_size=3, stride=1,
+            kernel_size=config.KERNEL_SIZE,
+            stride=config.STRIDES,
             groups=inner_channels, bias=False,
-            padding=self.padding(3, 1),
+            padding=config.padding,
             bn_momentum=bn_momentum,
             bn_eps=bn_eps)
         op_attrs = dict(
@@ -89,13 +90,14 @@ class MBConvX(nn.Module):
             out_channels=config.OUT_CHANNELS,            
             kernel_size=1, stride=1,
             groups=1, bias=False,
-            padding=self.padding(1, 1),
+            padding=config.padding,
             bn_momentum=bn_momentum,
             bn_eps=bn_eps)
-        
-        self.conv_ip = ConvBNR(activation=Swish, **ex_attrs)
-        self.conv_dw = ConvBNR(activation=Swish, **dw_attrs)
-        self.conv_op = ConvBNR(**op_attrs)
+
+        activation = config.ACTIVATION
+        self.conv_ip = ConvBNA(activation=activation, **ex_attrs)
+        self.conv_dw = ConvBNA(activation=activation, **dw_attrs)
+        self.conv_op = ConvBNA(**op_attrs)
         
         if config.HAS_SE:
             self._sqex = SqueezeExcitation(
@@ -112,31 +114,70 @@ class MBConvX(nn.Module):
                       training=self.config.TRAINING)
             x = x + inputs
         return x
-
-    @staticmethod
-    def padding(kernel_size: int, stride: int):
-        return max(kernel_size - stride, 0) // 2
     
 
 class EfficientNetBase(nn.Module):
     
-    def __init__(self, ):
-        pass
+    def __init__(self, model_definition: dict):
+        super(EfficientNetBase, self).__init__()
 
+        modules = []
+        for definition in model_definition:
+            operator = definition['operator'].lower()
+            config = definition['config']
+            layers = definition['layers']
+
+            out_channels = config.OUT_CHANNELS
+            for i in range(layers):
+                if i > 0:
+                    config.IN_CHANNELS = out_channels
+                module = self._get_module(operator, config)
+                modules.append(module)
+                out_channels = config.OUT_CHANNELS
+
+        self._network = nn.Sequential(*modules)
+        print(self._network)
+
+    def forward(self, inputs):
+        x = inputs
+        # x = self.conv1(x)
+        # x = self.mbconv1_1(x)
+        print(x.shape)
+        return x
+        
+    def _get_module(self, operator, config):
+        if operator == 'conv2d':
+            module = ConvBNA(
+                use_bn=True, activation=None,
+                **dict(
+                    in_channels=config.IN_CHANNELS,
+                    out_channels=config.OUT_CHANNELS, 
+                    kernel_size=config.KERNEL_SIZE,
+                    stride=config.STRIDES,
+                    padding=config.padding,
+                    bn_momentum=config.BATCH_NORM_MOMENTUM,
+                    bn_eps=config.BATCH_NORM_EPS))
+        elif operator == 'fc' or operator == 'linear':
+            module = nn.Linear(in_features=config.IN_CHANNELS,
+                               out_features=config.OUT_CHANNELS,
+                               bias=config.HAS_BIAS)
+        elif operator == 'mbconv':
+            module = MBConvX(config)
+        elif operator == 'apool':
+            module = nn.AdaptiveAvgPool2d(config.OUT_CHANNELS)
+        elif operator == 'dropout':
+            module = nn.Dropout(config.DROPOUT_PROB)
+        else:
+            raise TypeError('Unknown model type')
+        return module
+            
 
 if __name__ == '__main__':
 
     import numpy as np
-    x = np.random.random((1, 3, 32, 32)).astype(np.float32)
+    x = np.random.random((1, 3, 224, 224)).astype(np.float32)
     y = torch.from_numpy(x)
-    
-    attrs = dict(in_channels=3, out_channels=32, kernel_size=1,
-                 stride=1, bias=False, bn_momentum=0.9, bn_eps=0.001)
 
-    config = MBConfig(IN_CHANNELS=3, OUT_CHANNELS=3, KERNEL_SIZE=1,
-                      STRIDES=1, EXPANSION_FACTOR=6)
-    print(config)
-    # m = ConvBNR(True, torch.nn.ReLU, **attrs)
-    
-    m = MBConvX(config)
-    m(y)
+    from efficient_net import model
+    e = EfficientNetBase(model.efficient_net)
+    e(y)
