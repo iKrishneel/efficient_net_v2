@@ -121,10 +121,10 @@ class MBConvX(nn.Module):
         return x
 
 
-class EfficientNetBase(nn.Module):
+class EfficientNetX(nn.Module):
 
     def __init__(self, model_definition: dict):
-        super(EfficientNetBase, self).__init__()
+        super(EfficientNetX, self).__init__()
 
         modules = []
         for definition in model_definition:
@@ -186,6 +186,6 @@ if __name__ == '__main__':
     y = torch.from_numpy(x)
 
     from efficient_net import model
-    e = EfficientNetBase(model.efficient_net)
+    e = EfficientNetX(model.efficient_net_b0)
     x = e(y)
     print(x)

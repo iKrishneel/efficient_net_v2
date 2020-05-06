@@ -2,7 +2,7 @@
 
 from efficient_net.config import MBConfig
 
-efficient_net = [
+efficient_net_b0 = [
     dict(operator='conv2d', layers=1,
          config=MBConfig(IN_CHANNELS=3,
                          OUT_CHANNELS=32,
