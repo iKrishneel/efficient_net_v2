@@ -13,7 +13,7 @@ from efficient_net.config import MBConfig
 class ConvBNA(nn.Module):
 
     def __init__(self,
-                 use_bn: bool=True,
+                 use_bn: bool = True,
                  activation=None,
                  **kwargs: dict):
         super(ConvBNA, self).__init__()
@@ -41,7 +41,7 @@ class SqueezeExcitation(nn.Module):
 
     def __init__(self, num_channels: int, activation=Swish):
         super(SqueezeExcitation, self).__init__()
-        
+
         num_reduced_channels = num_channels
         self.conv_sq = nn.Conv2d(
             num_channels, num_reduced_channels, kernel_size=1,
@@ -50,7 +50,7 @@ class SqueezeExcitation(nn.Module):
             num_reduced_channels, num_channels, kernel_size=1,
             bias=True, groups=1, padding=0)
         self.activation = activation()
-        
+
     def forward(self, inp):
         x = inp
         x = F.adaptive_avg_pool2d(x, 1)
@@ -58,18 +58,18 @@ class SqueezeExcitation(nn.Module):
         x = torch.sigmoid(self.conv_ex(x))
         x = x * inp
         return x
-        
+
 
 class MBConvX(nn.Module):
-    
+
     def __init__(self, config: MBConfig):
         super(MBConvX, self).__init__()
 
-        self.config = config        
+        self.config = config
         inner_channels = config.IN_CHANNELS * config.EXPANSION_FACTOR
         bn_momentum = config.BATCH_NORM_MOMENTUM
         bn_eps = config.BATCH_NORM_EPS
-        
+
         ex_attrs = dict(
             in_channels=config.IN_CHANNELS,
             out_channels=inner_channels,
@@ -89,22 +89,22 @@ class MBConvX(nn.Module):
             bn_eps=bn_eps)
         op_attrs = dict(
             in_channels=inner_channels,
-            out_channels=config.OUT_CHANNELS,            
+            out_channels=config.OUT_CHANNELS,
             kernel_size=1, stride=1,
             groups=1, bias=False,
             padding=0,
             bn_momentum=bn_momentum,
             bn_eps=bn_eps)
-        
+
         activation = config.ACTIVATION
         self.conv_ip = ConvBNA(activation=activation, **ex_attrs)
         self.conv_dw = ConvBNA(activation=activation, **dw_attrs)
         self.conv_op = ConvBNA(**op_attrs)
-        
+
         if config.HAS_SE:
             self._sqex = SqueezeExcitation(
                 num_channels=inner_channels)
-            
+
     def forward(self, inputs):
         x = inputs
         x = self.conv_ip(x)
@@ -113,18 +113,17 @@ class MBConvX(nn.Module):
         x = self.conv_op(x)
         if self.config.identity_skip:
             x = F.dropout(x, p=self.config.DROPOUT_PROB,
-                      training=self.config.TRAINING)
+                          training=self.config.TRAINING)
             x = x + inputs
         return x
-    
+
 
 class EfficientNetBase(nn.Module):
-    
+
     def __init__(self, model_definition: dict):
         super(EfficientNetBase, self).__init__()
 
         modules = []
-        # modules = nn.ModuleList()
         for definition in model_definition:
             operator = definition['operator'].lower()
             config1 = definition['config']
@@ -142,21 +141,19 @@ class EfficientNetBase(nn.Module):
                 out_channels = config.OUT_CHANNELS
 
         self._network = nn.Sequential(*modules)
-        # self._network = modules
-        # print(self._network)
 
     def forward(self, inputs):
         x = inputs
         x = self._network(x)
         return x
-        
+
     def _get_module(self, operator, config):
         if operator == 'conv2d':
             module = ConvBNA(
                 use_bn=True, activation=None,
                 **dict(
                     in_channels=config.IN_CHANNELS,
-                    out_channels=config.OUT_CHANNELS, 
+                    out_channels=config.OUT_CHANNELS,
                     kernel_size=config.KERNEL_SIZE,
                     stride=config.STRIDES,
                     padding=config.padding,
@@ -175,9 +172,9 @@ class EfficientNetBase(nn.Module):
         elif operator == 'flatten':
             module = nn.Flatten()
         else:
-            raise TypeError('Unknown model type')
+            raise TypeError('Unknown/unsupported model type')
         return module
-            
+
 
 if __name__ == '__main__':
 
@@ -187,4 +184,5 @@ if __name__ == '__main__':
 
     from efficient_net import model
     e = EfficientNetBase(model.efficient_net)
-    e(y)
+    x = e(y)
+    print(x)
