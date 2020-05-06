@@ -21,13 +21,15 @@ class MBConfig(object):
 
     ID_SKIP: bool = True
 
-    BATCH_NORM_MOMENTUM: float = 0.9
+    BATCH_NORM_MOMENTUM: float = 0.01
 
-    BATCH_NORM_EPS: float = 1E-5
+    BATCH_NORM_EPS: float = 1E-3
 
     HAS_SE: bool = True
 
-    DROPOUT_PROB: float = 0.0
+    REDUCTION_RATIO: int = 16
+
+    DROPOUT_PROB: float = 0.2
 
     ACTIVATION = Swish
 

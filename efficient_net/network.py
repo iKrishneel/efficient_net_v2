@@ -39,10 +39,13 @@ class ConvBNA(nn.Module):
 
 class SqueezeExcitation(nn.Module):
 
-    def __init__(self, num_channels: int, activation=Swish):
+    def __init__(self,
+                 num_channels: int,
+                 activation=Swish,
+                 ratio: float=1.0):
         super(SqueezeExcitation, self).__init__()
 
-        num_reduced_channels = num_channels
+        num_reduced_channels = int(max(num_channels // ratio, 1))
         self.conv_sq = nn.Conv2d(
             num_channels, num_reduced_channels, kernel_size=1,
             bias=True, groups=1, padding=0)
@@ -52,8 +55,7 @@ class SqueezeExcitation(nn.Module):
         self.activation = activation()
 
     def forward(self, inp):
-        x = inp
-        x = F.adaptive_avg_pool2d(x, 1)
+        x = F.adaptive_avg_pool2d(inp, 1)
         x = self.activation(self.conv_sq(x))
         x = torch.sigmoid(self.conv_ex(x))
         x = x * inp
@@ -103,15 +105,16 @@ class MBConvX(nn.Module):
 
         if config.HAS_SE:
             self._sqex = SqueezeExcitation(
-                num_channels=inner_channels)
+                num_channels=inner_channels,
+                ratio=config.REDUCTION_RATIO)
 
     def forward(self, inputs):
-        x = inputs
-        x = self.conv_ip(x)
+        x = self.conv_ip(inputs)
         x = self.conv_dw(x)
         x = self._sqex(x) if self.config.HAS_SE else x
         x = self.conv_op(x)
         if self.config.identity_skip:
+            # todo: replace with drop_connect
             x = F.dropout(x, p=self.config.DROPOUT_PROB,
                           training=self.config.TRAINING)
             x = x + inputs
@@ -141,10 +144,10 @@ class EfficientNetBase(nn.Module):
                 out_channels = config.OUT_CHANNELS
 
         self._network = nn.Sequential(*modules)
+        print(self._network)
 
     def forward(self, inputs):
-        x = inputs
-        x = self._network(x)
+        x = self._network(inputs)
         return x
 
     def _get_module(self, operator, config):
