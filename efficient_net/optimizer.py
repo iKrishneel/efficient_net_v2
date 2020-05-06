@@ -3,13 +3,13 @@
 import os
 import argparse
 from datetime import datetime
+import numpy as np
 
 import torch
 import torch.nn as nn
 
 from efficient_net.network import EfficientNetX as EfficientNet
-from efficient_net.config import TrainConfig
-from efficient_net import appname
+from efficient_net import appname, TrainConfig
 
 
 def get_name(prefix=''):
@@ -19,6 +19,7 @@ def get_name(prefix=''):
 class Optimizer(EfficientNet):
 
     def __init__(self, config: TrainConfig):
+        super(Optimizer, self).__init__(model_definition=config.MODEL)
         config.display()
         
         # logging directory setup
@@ -32,12 +33,17 @@ class Optimizer(EfficientNet):
                               if torch.cuda.is_available() else 'cpu')
         
         self._criterion = nn.CrossEntropyLoss()
-        """
         self._optimizer = torch.optim.RMSprop(
-            # params=
+            params=self.parameters(),
             lr=config.LR,
             momentum=config.MOMENTUM,
-            weight_decay=config.WEIGHT_DECAY,)"""
+            weight_decay=config.WEIGHT_DECAY,)
+
+        total_params = 0
+        for parameter in self.parameters():
+            if parameter.requires_grad:
+                total_params += np.prod(parameter.size())
+        print('total_params:', total_params)
         
 
 if __name__ == '__main__':
@@ -53,13 +59,6 @@ if __name__ == '__main__':
     config = TrainConfig()
     config.DATASET = args.dataset
     config.LOG_DIR = args.log_dir
-
     
-    # o = Optimizer(config)
+    o = Optimizer(config)
     
-    model_def = config.MODEL
-    module, defi = model_def.split('.')
-    import importlib
-    module = importlib.import_module('model')
-    v = getattr(module, defi)
-    print(v)

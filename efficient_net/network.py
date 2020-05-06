@@ -7,7 +7,8 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from efficient_net.activation import Swish
-from efficient_net.config import MBConfig
+# from efficient_net.config import MBConfig
+from efficient_net import MBConfig
 
 
 class ConvBNA(nn.Module):

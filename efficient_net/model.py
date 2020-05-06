@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from efficient_net.config import MBConfig
+from efficient_net import MBConfig
 
 efficient_net_b0 = [
     dict(operator='conv2d', layers=1,
