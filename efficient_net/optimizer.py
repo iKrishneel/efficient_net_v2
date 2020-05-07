@@ -89,7 +89,7 @@ class Optimizer(EfficientNet):
             if epoch == self.config.SNAPSHOT_EPOCH:
                 model_name = os.path.join(
                     self._log_dir, self.config.SNAPSHOT_NAME + '.pt')
-                th.save(model.state_dict(), model_name)
+                torch.save(self.state_dict(), model_name)
         
         
 if __name__ == '__main__':
