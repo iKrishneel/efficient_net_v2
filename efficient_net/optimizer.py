@@ -5,6 +5,7 @@ import argparse
 from datetime import datetime
 import numpy as np
 
+import tqdm
 import torch
 import torch.nn as nn
 
@@ -29,8 +30,9 @@ class Optimizer(EfficientNet):
         os.mkdir(self._log_dir)
 
         # device
-        device = torch.device(f'cuda:{config.DEVICE_ID}' \
-                              if torch.cuda.is_available() else 'cpu')
+        self._device = torch.device(
+            f'cuda:{config.DEVICE_ID}' \
+            if torch.cuda.is_available() else 'cpu')
         
         self._criterion = nn.CrossEntropyLoss()
         self._optimizer = torch.optim.RMSprop(
@@ -44,8 +46,52 @@ class Optimizer(EfficientNet):
             if parameter.requires_grad:
                 total_params += np.prod(parameter.size())
         print('total_params:', total_params)
-        
 
+        self.config = config
+
+    def optimize(self):
+
+        if torch.cuda.is_available():
+            self.cuda()
+        self.to(self._device)
+        
+        prev_loss = 0
+        for epoch in tqdm.trange(self.config.EPOCHS,
+                                 desc='efficient_net'):
+            running_loss = 0.0
+            desc = f'epoch {epoch}/{self.config.EPOCHS} Loss: {prev_loss}'
+            for i in tqdm.trange(self.config.ITER_PER_EPOCH,
+                                 desc=desc):
+
+                # todo: dataloader
+            
+                x = np.random.random((1, 3, 224, 224)).astype(np.float32)
+                y = torch.from_numpy(x)
+                labels = torch.from_numpy(np.array([1], dtype=np.int0) )
+
+                # clear gradients
+                self._optimizer.zero_grad()
+
+                # propagate the data
+                prediction = self.__call__(y)
+
+                # network loss
+                loss = self._criterion(prediction, labels)
+
+                # update network weight
+                loss.backward()
+                self._optimizer.step()
+                
+                running_loss += loss.item()
+
+            prev_loss = running_loss / self.config.ITER_PER_EPOCH
+
+            if epoch == self.config.SNAPSHOT_EPOCH:
+                model_name = os.path.join(
+                    self._log_dir, self.config.SNAPSHOT_NAME + '.pt')
+                th.save(model.state_dict(), model_name)
+        
+        
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -60,5 +106,5 @@ if __name__ == '__main__':
     config.DATASET = args.dataset
     config.LOG_DIR = args.log_dir
     
-    o = Optimizer(config)
+    o = Optimizer(config).optimize()
     

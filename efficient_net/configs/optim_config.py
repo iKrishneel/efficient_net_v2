@@ -31,6 +31,10 @@ class TrainConfig(object):
     INPUT_SHAPE: list = [3, 224, 224]
 
     DEVICE_ID: int = 0
+
+    SNAPSHOT_NAME: str = 'efficient_net'
+
+    SNAPSHOT_EPOCH: int = 10
     
     def display(self):
         """Display configuration values
