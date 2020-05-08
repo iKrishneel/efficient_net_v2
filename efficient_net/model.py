@@ -63,6 +63,6 @@ efficient_net_b0 = [
          config=MBConfig(DROPOUT_PROB=0.2)),
     dict(operator='fc', layers=1,
          config=MBConfig(IN_CHANNELS=1280,
-                         OUT_CHANNELS=10,
+                         OUT_CHANNELS=258,
                          HAS_BIAS=True)),
 ]

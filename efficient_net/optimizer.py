@@ -8,9 +8,11 @@ import numpy as np
 import tqdm
 import torch
 import torch.nn as nn
+from torchvision import transforms
 
 from efficient_net.network import EfficientNetX as EfficientNet
 from efficient_net import appname, TrainConfig
+from efficient_net.dataloader import CustomDataloader, create_loader
 
 
 def get_name(prefix=''):
@@ -49,6 +51,19 @@ class Optimizer(EfficientNet):
 
         self.config = config
 
+        transform = transforms.Compose(
+            [transforms.CenterCrop(config.INPUT_SHAPE[1:]),
+             transforms.ColorJitter(0.5, 0.5, 0, 0),
+             transforms.RandomAffine(degrees=30, scale=(0.5, 2.0)),
+             transforms.RandomHorizontalFlip(p=0.5),
+             transforms.ToTensor()])
+        
+        train_ds, val_ds = create_loader(config.DATASET)
+        self.train_dl = torch.utils.data.DataLoader(
+            train_ds, batch_size=config.BATCH_SIZE, shuffle=True) 
+        self.val_dl = torch.utils.data.DataLoader(
+            val_ds, batch_size=config.BATCH_SIZE, shuffle=True)
+
     def optimize(self):
 
         if torch.cuda.is_available():
@@ -63,17 +78,16 @@ class Optimizer(EfficientNet):
             for i in tqdm.trange(self.config.ITER_PER_EPOCH,
                                  desc=desc):
 
-                # todo: dataloader
-            
-                x = np.random.random((1, 3, 224, 224)).astype(np.float32)
-                y = torch.from_numpy(x)
-                labels = torch.from_numpy(np.array([1], dtype=np.int0) )
+                # dataloader
+                images, labels = next(iter(self.train_dl))
+                # images = images.to(self._device),
+                # labels = labels.to(self._device)
 
                 # clear gradients
                 self._optimizer.zero_grad()
-
+                
                 # propagate the data
-                prediction = self.__call__(y)
+                prediction = self.__call__(images)
 
                 # network loss
                 loss = self._criterion(prediction, labels)
@@ -85,7 +99,7 @@ class Optimizer(EfficientNet):
                 running_loss += loss.item()
 
             prev_loss = running_loss / self.config.ITER_PER_EPOCH
-
+            
             if epoch == self.config.SNAPSHOT_EPOCH:
                 model_name = os.path.join(
                     self._log_dir, self.config.SNAPSHOT_NAME + '.pt')
@@ -100,11 +114,18 @@ if __name__ == '__main__':
         '--dataset', type=str, required=True)
     parser.add_argument(
         '--log_dir', type=str, required=False, default='logs')
+    parser.add_argument(
+        '--batch', type=int, required=False, default=1)
+    parser.add_argument(
+        '--epochs', type=int, required=False, default=100)    
+    
     args = parser.parse_args()
 
     config = TrainConfig()
     config.DATASET = args.dataset
     config.LOG_DIR = args.log_dir
+    config.BATCH_SIZE = args.batch
+    config.EPOCHS = args.epochs
     
     o = Optimizer(config).optimize()
     

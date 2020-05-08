@@ -12,6 +12,8 @@ class TrainConfig(object):
 
     LOG_DIR: str = 'logs/'
 
+    BATCH_SIZE: int = 1
+    
     EPOCHS: int = 100
 
     ITER_PER_EPOCH: int = 1000
