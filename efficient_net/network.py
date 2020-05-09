@@ -43,7 +43,7 @@ class SqueezeExcitation(nn.Module):
     def __init__(self,
                  num_channels: int,
                  activation=Swish,
-                 ratio: float=1.0):
+                 ratio: float = 1.0):
         super(SqueezeExcitation, self).__init__()
 
         num_reduced_channels = int(max(num_channels // ratio, 1))

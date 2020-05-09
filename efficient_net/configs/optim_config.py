@@ -7,17 +7,17 @@ class TrainConfig(object):
 
     # MODEL: str = 'model.efficient_net_b0'
     MODEL: dict = model.efficient_net_b0
-    
+
     DATASET: str = None
 
     LOG_DIR: str = 'logs/'
 
     BATCH_SIZE: int = 1
-    
+
     EPOCHS: int = 100
 
     ITER_PER_EPOCH: int = 1000
-    
+
     # optimizer params
     LR: float = 0.256
 
@@ -26,7 +26,7 @@ class TrainConfig(object):
     LR_DECAY_EPOCH: int = 2
 
     MOMENTUM: float = 0.9
-    
+
     WEIGHT_DECAY: float = 1e-5
 
     # input
@@ -37,7 +37,9 @@ class TrainConfig(object):
     SNAPSHOT_NAME: str = 'efficient_net'
 
     SNAPSHOT_EPOCH: int = 10
-    
+
+    WEIGHT_FILE: str = None
+
     def display(self):
         """Display configuration values
         Prints all configuration values to the cout.

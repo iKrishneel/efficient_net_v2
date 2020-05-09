@@ -9,10 +9,10 @@ import torch
 from torchvision import transforms
 
 
-def create_loader(dataset_dir: str, train_val_ratio: float=0.7):
+def create_loader(dataset_dir: str, train_val_ratio: float = 0.7):
 
     np.random.seed(256)
-        
+
     class_names = dict()
     train_ds = []
     val_ds = []
@@ -22,7 +22,7 @@ def create_loader(dataset_dir: str, train_val_ratio: float=0.7):
         label = int(label)
 
         class_names[label] = name
-            
+
         image_files = os.listdir(path)
 
         s = int(train_val_ratio * len(image_files))
@@ -30,13 +30,17 @@ def create_loader(dataset_dir: str, train_val_ratio: float=0.7):
         y = image_files[s:]
 
         for i in x:
+            if len(i.split('.')) is not 2:
+                continue
             im_path = os.path.join(path, i)
             train_ds.append([im_path, label])
-                
+
         for i in y:
+            if len(i.split('.')) is not 2:
+                continue
             im_path = os.path.join(path, i)
             val_ds.append([im_path, label])
-            
+
     return CustomDataloader(train_ds), CustomDataloader(val_ds)
 
 
@@ -59,7 +63,7 @@ class CustomDataloader(torch.utils.data.Dataset):
 
         im_path, label = self.dataset[idx]
         im = Image.open(im_path).convert('RGB')
-        
+
         if self._transform is not None:
             im = self._transform(im)
         else:
@@ -74,26 +78,25 @@ class CustomDataloader(torch.utils.data.Dataset):
     @transform.setter
     def transform(self, transform):
         self._transform = transform
-            
+
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, required=True)
     args = parser.parse_args()
-    
+
     train_dl, val_dl = create_loader(args.dataset)
-    train_dl.transform =  transforms.Compose(
+    train_dl.transform = transforms.Compose(
         [transforms.CenterCrop((224, 224)),
-        # transforms.Resize(input_shape[1:]),
+         # transforms.Resize(input_shape[1:]),
          transforms.ColorJitter(0.5, 0.5, 0, 0),
          transforms.RandomAffine(degrees=30, scale=(0.5, 2.0)),
          transforms.RandomHorizontalFlip(p=0.5),
          transforms.ToTensor()])
-    
+
     l = torch.utils.data.DataLoader(train_dl, batch_size=1,
                                     shuffle=True)
-    
+
     from IPython import embed
     embed()
-    
