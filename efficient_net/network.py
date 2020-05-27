@@ -35,6 +35,7 @@ class ConvBNA(nn.Module):
             x = self.bn(x)
         if self.activation is not None:
             x = self.activation(x)
+        # x = nn.Dropout(p=0.5)(x)
         return x
 
 
@@ -116,8 +117,8 @@ class MBConvX(nn.Module):
         x = self.conv_op(x)
         if self.config.identity_skip:
             # todo: replace with drop_connect
-            x = F.dropout(x, p=self.config.DROPOUT_PROB,
-                          training=self.config.TRAINING)
+            x = nn.Dropout(0.5)(x)
+            # x = F.dropout(x, p=self.config.DROPOUT_PROB, training=self.config.TRAINING)
             x = x + inputs
         return x
 

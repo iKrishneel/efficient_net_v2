@@ -67,7 +67,8 @@ class CustomDataloader(torch.utils.data.Dataset):
         if self._transform is not None:
             im = self._transform(im)
         else:
-            im = transforms.Resize(self._input_shape[1:])(im)
+            # im = transforms.Resize(self._input_shape[1:])(im)
+            im = transforms.RandomResizedCrop(self._input_shape[1:])(im)
             im = transforms.ToTensor()(im)
         return [im, label]
 

@@ -29,7 +29,7 @@ class Optimizer(object):
         config.display()
         self.config = config
         model = EfficientNet(model_definition=config.MODEL)
-        # self._model = nn.DataParallel(model)
+        
         self._model = model
         
         # logging directory setup
@@ -55,8 +55,9 @@ class Optimizer(object):
         transform = transforms.Compose(
             [transforms.RandomResizedCrop(config.INPUT_SHAPE[1:]),
              # transforms.RandomCrop(config.INPUT_SHAPE[1:], pad_if_needed=True),
-             transforms.ColorJitter(0.5, 0.5, 0, 0),
-             transforms.RandomAffine(degrees=60, scale=(0.2, 2.0)),
+             transforms.Grayscale(num_output_channels=3),
+             transforms.ColorJitter([0.5, 2], [0.5, 2], 0.5, 0.5),
+             transforms.RandomAffine(degrees=180, scale=(0.2, 2.0)),
              transforms.RandomHorizontalFlip(p=0.5),
              transforms.ToTensor()])
         
@@ -66,13 +67,14 @@ class Optimizer(object):
         self.train_dl.transform = transform
         self.val_dl = torch.utils.data.DataLoader(
             val_ds, batch_size=config.BATCH_SIZE//2, shuffle=True)
+        #self.val_dl.transform = transform
 
         self._criterion = nn.CrossEntropyLoss().to(self._device)
         self._optimizer = torch.optim.Adam(
             params=self._model.parameters(),
             lr=config.LR,
             # momentum=config.MOMENTUM,
-            weight_decay=config.WEIGHT_DECAY * 0,)
+            weight_decay=config.WEIGHT_DECAY)
         
         if config.WEIGHT_FILE is not None:
             checkpoint = torch.load(config.WEIGHT_FILE,
@@ -82,6 +84,9 @@ class Optimizer(object):
             
     
         print(f'Current Device {torch.cuda.current_device()}')
+        
+        # self._model = nn.DataParallel(self._model)
+        
         """
         self._lr_scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer=self._optimizer,
@@ -116,27 +121,29 @@ class Optimizer(object):
         total_correct = 0
         total_num = 0
         val_loss = 0
-        start = time.time()
-        for images, labels in tqdm.tqdm(self.val_dl):
-            images = images.to(self._device)
-            labels = labels.to(self._device)
-            prediction = self._model(images)
-            
-            # network loss
-            loss = self._criterion(prediction, labels)
-            loss_data = loss.data.item()
-            val_loss += loss_data
-            
-            acc1, acc5 = Optimizer.accuracy(prediction, labels, topk=(1, 5))
-            losses.update(loss.item(), images.size(0))
-            top1.update(acc1[0], images.size(0))
-            top5.update(acc5[0], images.size(0))
-
-             # update
-            batch_time.update(time.time() - start)            
+        
+        with torch.no_grad():
             start = time.time()
+            for images, labels in tqdm.tqdm(self.val_dl):
+                images = images.to(self._device)
+                labels = labels.to(self._device)
+                prediction = self._model(images)
             
-        progress.display(0)
+                # network loss
+                loss = self._criterion(prediction, labels)
+                loss_data = loss.data.item()
+                val_loss += loss_data
+            
+                acc1, acc5 = Optimizer.accuracy(prediction, labels, topk=(1, 5))
+                losses.update(loss.item(), images.size(0))
+                top1.update(acc1[0], images.size(0))
+                top5.update(acc5[0], images.size(0))
+
+                # update
+                batch_time.update(time.time() - start)            
+                start = time.time()
+            
+            progress.display(0)
             
         val_loss /= len(self.val_dl)
         print(f'Validation loss: {val_loss}')
