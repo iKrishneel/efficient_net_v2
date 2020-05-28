@@ -60,7 +60,7 @@ efficient_net_b0 = [
     dict(operator='flatten', layers=1,
          config=MBConfig(OUT_CHANNELS=1)),
     dict(operator='dropout', layers=1,
-         config=MBConfig(DROPOUT_PROB=0.5)),
+         config=MBConfig(DROPOUT_PROB=0.6)),
     dict(operator='fc', layers=1,
          config=MBConfig(IN_CHANNELS=1280,
                          OUT_CHANNELS=257,

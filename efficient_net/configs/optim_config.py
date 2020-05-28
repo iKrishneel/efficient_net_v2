@@ -13,13 +13,15 @@ class TrainConfig(object):
     LOG_DIR: str = 'logs/'
 
     BATCH_SIZE: int = 1
+        
+    VAL_BATCH_SIZE: int = 1
     
     EPOCHS: int = 200
 
     ITER_PER_EPOCH: int = 1000
     
     # optimizer params
-    LR: float = 3e-5
+    LR: float = 0.01
 
     LR_DECAY: float = 0.57
 
@@ -27,7 +29,9 @@ class TrainConfig(object):
 
     MOMENTUM: float = 0.9
     
-    WEIGHT_DECAY: float = 1e-5
+    WEIGHT_DECAY: float = 1e-4
+        
+    SCHEDULE_LR: bool = False
 
     # input
     INPUT_SHAPE: list = [3, 224, 224]

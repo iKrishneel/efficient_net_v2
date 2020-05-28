@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 import os
+import os.path as osp
 import argparse
 from datetime import datetime
 import numpy as np
 import time
+import csv
 
 import tqdm
 import torch
@@ -22,6 +24,14 @@ def get_name(prefix=''):
     return prefix + '_' + datetime.now().strftime("%Y%m%d%H%M%S")
 
 
+def create_logging_folder(config: TrainConfig):
+    if not osp.isdir(config.LOG_DIR):
+        os.mkdir(config.LOG_DIR)
+    log_dir = osp.join(config.LOG_DIR, get_name(appname()))
+    os.mkdir(log_dir)
+    return log_dir
+        
+
 class Optimizer(object):
 
     def __init__(self, config: TrainConfig):
@@ -29,15 +39,9 @@ class Optimizer(object):
         config.display()
         self.config = config
         model = EfficientNet(model_definition=config.MODEL)
-        # self._model = nn.DataParallel(model)
+        
         self._model = model
         
-        # logging directory setup
-        if not os.path.isdir(config.LOG_DIR):
-            os.mkdir(config.LOG_DIR)
-        self._log_dir = os.path.join(config.LOG_DIR, get_name(appname()))
-        os.mkdir(self._log_dir)
-
         # device
         self._device = torch.device(
             f'cuda:{config.DEVICE_ID}' \
@@ -55,8 +59,9 @@ class Optimizer(object):
         transform = transforms.Compose(
             [transforms.RandomResizedCrop(config.INPUT_SHAPE[1:]),
              # transforms.RandomCrop(config.INPUT_SHAPE[1:], pad_if_needed=True),
-             transforms.ColorJitter(0.5, 0.5, 0, 0),
-             transforms.RandomAffine(degrees=60, scale=(0.2, 2.0)),
+             transforms.Grayscale(num_output_channels=3),
+             transforms.ColorJitter([0.5, 2], [0.5, 2], 0.5, 0.5),
+             transforms.RandomAffine(degrees=180, scale=(0.2, 2.0)),
              transforms.RandomHorizontalFlip(p=0.5),
              transforms.ToTensor()])
         
@@ -65,37 +70,74 @@ class Optimizer(object):
             train_ds, batch_size=config.BATCH_SIZE, shuffle=True)
         self.train_dl.transform = transform
         self.val_dl = torch.utils.data.DataLoader(
-            val_ds, batch_size=config.BATCH_SIZE//2, shuffle=True)
+            val_ds, batch_size=config.VAL_BATCH_SIZE, shuffle=True)
+        #self.val_dl.transform = transform
 
         self._criterion = nn.CrossEntropyLoss().to(self._device)
         self._optimizer = torch.optim.Adam(
             params=self._model.parameters(),
             lr=config.LR,
             # momentum=config.MOMENTUM,
-            weight_decay=config.WEIGHT_DECAY * 0,)
+            weight_decay=config.WEIGHT_DECAY)
+        
+        self._lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer=self._optimizer,
+            step_size=config.LR_DECAY_EPOCH,
+            gamma=config.LR_DECAY) if config.SCHEDULE_LR else None
         
         if config.WEIGHT_FILE is not None:
             checkpoint = torch.load(config.WEIGHT_FILE,
                                     map_location=self._device)
             self._model.load_state_dict(checkpoint['model_state_dict'])
             # self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            
-    
-        print(f'Current Device {torch.cuda.current_device()}')
-        """
-        self._lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer=self._optimizer,
-            step_size=config.LR_DECAY_EPOCH,
-            gamma=config.LR_DECAY)"""
-
+        
+        # self._model = nn.DataParallel(self._model)
+        print(f'Working Device {torch.cuda.current_device()}')
+        
+        self._log_headers = [
+            'epoch',
+            'iteration',
+            'train/loss',
+            'train/acc@1',
+            'train/acc@5',
+            'valid/loss',
+            'valid/acc@1',
+            'valid/acc@5',
+            'elapsed_time',
+        ]
+        
+        self._log_dir = create_logging_folder(config=self.config)
+        print(f'Data will be logged at {self._log_dir}')
+                
+        self._log_csv = osp.join(self._log_dir, 'log.csv')
+        if not osp.exists(self._log_csv):
+            with open(self._log_csv, 'w') as f:
+                f.write(','.join(self._log_headers) + '\n')
+                
     def weight_init(self, m):
         if isinstance(m, nn.Conv2d):
             torch.nn.init.xavier_uniform_(m.weight)
             if m.bias is not None:
                 torch.nn.init.zeros_(m.bias)
             
-    # https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html#putting-everything-together
-    
+    @staticmethod
+    def accuracy(output, target, topk=(1,)):
+        """Computes the accuracy over the k top predictions for the specified values of k
+        """
+        with torch.no_grad():
+            maxk = max(topk)
+            batch_size = target.size(0)
+
+            _, pred = output.topk(maxk, 1, True, True)
+            pred = pred.t()
+            correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+            res = []
+            for k in topk:
+                correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+                res.append(correct_k.mul_(100.0 / batch_size))
+            return res
+
     def validate(self):
         self._model.to(self._device)
         self._model.eval()
@@ -116,50 +158,41 @@ class Optimizer(object):
         total_correct = 0
         total_num = 0
         val_loss = 0
-        start = time.time()
-        for images, labels in tqdm.tqdm(self.val_dl):
-            images = images.to(self._device)
-            labels = labels.to(self._device)
-            prediction = self._model(images)
-            
-            # network loss
-            loss = self._criterion(prediction, labels)
-            loss_data = loss.data.item()
-            val_loss += loss_data
-            
-            acc1, acc5 = Optimizer.accuracy(prediction, labels, topk=(1, 5))
-            losses.update(loss.item(), images.size(0))
-            top1.update(acc1[0], images.size(0))
-            top5.update(acc5[0], images.size(0))
-
-             # update
-            batch_time.update(time.time() - start)            
+        
+        with torch.no_grad():
             start = time.time()
+            for images, labels in tqdm.tqdm(self.val_dl):
+                images = images.to(self._device)
+                labels = labels.to(self._device)
+                prediction = self._model(images)
             
-        progress.display(0)
+                # network loss
+                loss = self._criterion(prediction, labels)
+                loss_data = loss.data.item()
+                val_loss += loss_data
+            
+                acc1, acc5 = Optimizer.accuracy(prediction, labels, topk=(1, 5))
+                losses.update(loss.item(), images.size(0))
+                top1.update(acc1[0], images.size(0))
+                top5.update(acc5[0], images.size(0))
+
+                # update
+                batch_time.update(time.time() - start)            
+                start = time.time()
+            
+            progress.display(0)
             
         val_loss /= len(self.val_dl)
         print(f'Validation loss: {val_loss}')
-    
-    @staticmethod
-    def accuracy(output, target, topk=(1,)):
-        """Computes the accuracy over the k top predictions for the specified values of k
-        """
-        with torch.no_grad():
-            maxk = max(topk)
-            batch_size = target.size(0)
-
-            _, pred = output.topk(maxk, 1, True, True)
-            pred = pred.t()
-            correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-            res = []
-            for k in topk:
-                correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-                res.append(correct_k.mul_(100.0 / batch_size))
-            return res
+          
+    def pbar_desc(self, epoch=0, i=0, loss=-1, acc1=0.0, acc5=0.0):
+        return f'| epoch {epoch}/{self.config.EPOCHS} ' +\
+               f'| iter {i:4} ' + \
+               f'| Loss: {loss:.4f} ' +\
+               f'| Acc@1 {acc1:.4f} ' +\
+               f'| Acc@5 {acc5:.4f} |'
         
-    def train_one_epoch(self, epoch: int, prev_loss: float=0.0):
+    def train_one_epoch(self, epoch: int):
         
         batch_time = AverageMeter('Time', ':6.3f')
         data_time = AverageMeter('Data', ':6.3f')
@@ -177,13 +210,12 @@ class Optimizer(object):
         
         self.training = True
         running_loss = 0
-
-        desc = f'epoch {epoch}/{self.config.EPOCHS}' + \
-               f' Loss: {prev_loss}'
-            
-        start = time.time()
         batch_index = 0
-        for images, labels in tqdm.tqdm(self.train_dl, desc=desc):
+        
+        start = time.time()        
+        total_iter = len(self.train_dl)
+        pbar = tqdm.tqdm(total=total_iter, desc=self.pbar_desc(epoch=epoch))
+        for images, labels in self.train_dl:
             data_time.update(time.time() - start)
             
             images = images.to(self._device)
@@ -201,7 +233,13 @@ class Optimizer(object):
             losses.update(loss.item(), images.size(0))
             top1.update(acc1[0], images.size(0))
             top5.update(acc5[0], images.size(0))
-    
+            
+            desc = self.pbar_desc(epoch, batch_index, loss.item(), 
+                                  acc1[0], acc5[0])
+            pbar.set_description(desc=desc, refresh=True)
+            pbar.total = total_iter
+            pbar.update(1)
+            
             # loss /= len(images)
             loss_data = loss.item()
             if np.isnan(loss_data):
@@ -216,10 +254,16 @@ class Optimizer(object):
             running_loss += loss_data
             batch_index += 1
             start = time.time()
-            
+            break
+
+        pbar.close()    
         progress.display(batch_index)
         
-        return running_loss  / batch_index # len(self.train_dl)
+        result = dict(losses=losses.avg, 
+                      iteration=batch_index,
+                      top1=float(top1.avg.detach().cpu().numpy()),
+                      top5=float(top5.avg.detach().cpu().numpy()))
+        return result
     
     def optimize(self):
 
@@ -228,17 +272,34 @@ class Optimizer(object):
 
         self._model.to(self._device)
         self._model.train()
-
-        prev_loss = 0
-        for epoch in tqdm.trange(self.config.EPOCHS,
-                                 desc='efficient_net'):
-            prev_loss = self.train_one_epoch(epoch, prev_loss)
-
-            if epoch % 1 == 0:
-                self.validate()
+    
+        start_time = time.time()
+        loss = 0
+        for epoch in range(self.config.EPOCHS):
+            result = self.train_one_epoch(epoch)
+            if epoch % 100 == 0:
+                #val_result = self.validate()
+                pass
             
-            # self._lr_scheduler.step()
+            if self._lr_scheduler is not None:
+                self._lr_scheduler.step()
             
+            val_result = result
+            with open(self._log_csv, 'a') as f:
+                log = [epoch, 
+                       result['iteration'], 
+                       result['losses'], 
+                       result['top1'],
+                       result['top5'],
+                       val_result['losses'], 
+                       val_result['top1'],
+                       val_result['top5'],
+                       f'{time.time()-start_time:.6f}']
+                log = map(str, log)
+                f.write(','.join(log) + '\n')
+
+            continue
+        
             if epoch % self.config.SNAPSHOT_EPOCH == 0:
                 model_name = os.path.join(
                     self._log_dir, self.config.SNAPSHOT_NAME + '.pt')
@@ -247,8 +308,11 @@ class Optimizer(object):
                     'epoch': epoch,
                     'model_state_dict': self._model.state_dict(),
                     'optimizer_state_dict': self._optimizer.state_dict(),
-                    'loss': prev_loss}, os.path.join(self._log_dir, 'checkpoint.pth.tar'))
+                    'loss': result['losses']}, 
+                    os.path.join(self._log_dir, 'checkpoint.pth.tar'))
                 
+            print('{s:{c}^{n}}'.format(s='', n=120, c='-'))
+        
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -264,6 +328,12 @@ if __name__ == '__main__':
         '--epochs', type=int, required=False, default=100)
     parser.add_argument(
         '--weight', type=str, required=False, default=None)
+    parser.add_argument(
+        '--lr', type=float, required=False, default=3e-4)
+    parser.add_argument(
+        '--decay', type=float, required=False, default=0.0)
+    parser.add_argument(
+        '--schedule_lr', action='store_true', default=False)
     
     args = parser.parse_args()
 
@@ -273,7 +343,9 @@ if __name__ == '__main__':
     config.BATCH_SIZE = args.batch
     config.EPOCHS = args.epochs
     config.WEIGHT_FILE = args.weight
+    config.LR = args.lr
+    config.WEIGHT_DECAY = args.decay
+    config.SCHEDULE_LR = args.schedule_lr
     
     o = Optimizer(config)
     o.optimize()
-    # o.validate()
