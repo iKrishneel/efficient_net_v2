@@ -92,7 +92,6 @@ class Optimizer(object):
             # self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         
         # self._model = nn.DataParallel(self._model)
-        print(f'Working Device {torch.cuda.current_device()}')
         
         self._log_headers = [
             'epoch',
@@ -138,7 +137,17 @@ class Optimizer(object):
                 res.append(correct_k.mul_(100.0 / batch_size))
             return res
 
-    def validate(self):
+    def pbar_desc(
+        self, name: str='Train', epoch: int=0, i: int=0,
+        loss: float=-1, acc1: float=0.0, acc5: float=0.0):
+        return f'{name.ljust(8)}' + \
+          f'| epoch {epoch}/{self.config.EPOCHS} ' +\
+          f'| iter {i:4} ' + \
+          f'| Loss: {loss:.4f} ' +\
+          f'| Acc@1 {acc1:.4f} ' +\
+          f'| Acc@5 {acc5:.4f} |'
+            
+    def validate(self, epoch: int):
         self._model.to(self._device)
         self._model.eval()
 
@@ -149,19 +158,23 @@ class Optimizer(object):
         losses = AverageMeter('Loss', ':.4e')
         top1 = AverageMeter('Acc@1', ':6.2f')
         top5 = AverageMeter('Acc@5', ':6.2f')
-        
+
         progress = ProgressMeter(
-            len(self.train_dl),
+            len(self.val_dl),
             [batch_time, data_time, losses, top1, top5],
-            prefix=desc)
-        
-        total_correct = 0
-        total_num = 0
-        val_loss = 0
-        
+            prefix="Val Epoch: [{}]".format(epoch))
+                
+        total_iter = len(self.val_dl)
+        pbar = tqdm.tqdm(total=total_iter,
+                         desc=self.pbar_desc(
+                             name='Val', epoch=epoch))
         with torch.no_grad():
             start = time.time()
-            for images, labels in tqdm.tqdm(self.val_dl):
+            total_correct = 0
+            total_num = 0
+            val_loss = 0
+            
+            for index, (images, labels) in enumerate(self.val_dl):
                 images = images.to(self._device)
                 labels = labels.to(self._device)
                 prediction = self._model(images)
@@ -171,27 +184,34 @@ class Optimizer(object):
                 loss_data = loss.data.item()
                 val_loss += loss_data
             
-                acc1, acc5 = Optimizer.accuracy(prediction, labels, topk=(1, 5))
+                acc1, acc5 = Optimizer.accuracy(
+                    prediction, labels, topk=(1, 5))
                 losses.update(loss.item(), images.size(0))
                 top1.update(acc1[0], images.size(0))
                 top5.update(acc5[0], images.size(0))
 
+                desc = self.pbar_desc(
+                    'Val', epoch, index, loss.item(), 
+                    acc1[0], acc5[0])
+                pbar.set_description(desc=desc, refresh=True)
+                pbar.total = total_iter
+                pbar.update(1)
+
                 # update
                 batch_time.update(time.time() - start)            
                 start = time.time()
+
+                break
+
+            pbar.close()
+            # progress.display(0)
             
-            progress.display(0)
-            
-        val_loss /= len(self.val_dl)
-        print(f'Validation loss: {val_loss}')
-          
-    def pbar_desc(self, epoch=0, i=0, loss=-1, acc1=0.0, acc5=0.0):
-        return f'| epoch {epoch}/{self.config.EPOCHS} ' +\
-               f'| iter {i:4} ' + \
-               f'| Loss: {loss:.4f} ' +\
-               f'| Acc@1 {acc1:.4f} ' +\
-               f'| Acc@5 {acc5:.4f} |'
-        
+        result = dict(losses=losses.avg, 
+                      iteration=index,
+                      top1=float(top1.avg.detach().cpu().numpy()),
+                      top5=float(top5.avg.detach().cpu().numpy()))
+        return result
+                  
     def train_one_epoch(self, epoch: int):
         
         batch_time = AverageMeter('Time', ':6.3f')
@@ -214,7 +234,8 @@ class Optimizer(object):
         
         start = time.time()        
         total_iter = len(self.train_dl)
-        pbar = tqdm.tqdm(total=total_iter, desc=self.pbar_desc(epoch=epoch))
+        pbar = tqdm.tqdm(total=total_iter,
+                         desc=self.pbar_desc(epoch=epoch))
         for images, labels in self.train_dl:
             data_time.update(time.time() - start)
             
@@ -234,8 +255,9 @@ class Optimizer(object):
             top1.update(acc1[0], images.size(0))
             top5.update(acc5[0], images.size(0))
             
-            desc = self.pbar_desc(epoch, batch_index, loss.item(), 
-                                  acc1[0], acc5[0])
+            desc = self.pbar_desc(
+                'Train', epoch, batch_index, loss.item(), 
+                acc1[0], acc5[0])
             pbar.set_description(desc=desc, refresh=True)
             pbar.total = total_iter
             pbar.update(1)
@@ -257,7 +279,7 @@ class Optimizer(object):
             break
 
         pbar.close()    
-        progress.display(batch_index)
+        # progress.display(batch_index)
         
         result = dict(losses=losses.avg, 
                       iteration=batch_index,
@@ -277,9 +299,8 @@ class Optimizer(object):
         loss = 0
         for epoch in range(self.config.EPOCHS):
             result = self.train_one_epoch(epoch)
-            if epoch % 100 == 0:
-                #val_result = self.validate()
-                pass
+            if epoch % 1 == 0:
+                val_result = self.validate(epoch)
             
             if self._lr_scheduler is not None:
                 self._lr_scheduler.step()
