@@ -6,12 +6,12 @@ import argparse
 from datetime import datetime
 import numpy as np
 import time
-import csv
+import matplotlib.pyplot as plt
+plt.style.use('dark_background')
 
 import tqdm
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torchvision import transforms
 
 from efficient_net.network import EfficientNetX as EfficientNet
@@ -178,7 +178,7 @@ class Optimizer(object):
                 images = images.to(self._device)
                 labels = labels.to(self._device)
                 prediction = self._model(images)
-            
+                
                 # network loss
                 loss = self._criterion(prediction, labels)
                 loss_data = loss.data.item()
@@ -206,10 +206,9 @@ class Optimizer(object):
             pbar.close()
             # progress.display(0)
             
-        result = dict(losses=losses.avg, 
+        result = dict(losses=losses, 
                       iteration=index,
-                      top1=float(top1.avg.detach().cpu().numpy()),
-                      top5=float(top5.avg.detach().cpu().numpy()))
+                      top1=top1, top5=top5)
         return result
                   
     def train_one_epoch(self, epoch: int):
@@ -230,13 +229,12 @@ class Optimizer(object):
         
         self.training = True
         running_loss = 0
-        batch_index = 0
         
         start = time.time()        
         total_iter = len(self.train_dl)
         pbar = tqdm.tqdm(total=total_iter,
                          desc=self.pbar_desc(epoch=epoch))
-        for images, labels in self.train_dl:
+        for index, (images, labels) in enumerate(self.train_dl):
             data_time.update(time.time() - start)
             
             images = images.to(self._device)
@@ -256,7 +254,7 @@ class Optimizer(object):
             top5.update(acc5[0], images.size(0))
             
             desc = self.pbar_desc(
-                'Train', epoch, batch_index, loss.item(), 
+                'Train', epoch, index, loss.item(), 
                 acc1[0], acc5[0])
             pbar.set_description(desc=desc, refresh=True)
             pbar.total = total_iter
@@ -274,17 +272,17 @@ class Optimizer(object):
             batch_time.update(time.time() - start)
             
             running_loss += loss_data
-            batch_index += 1
             start = time.time()
-            break
+
+            if index == 5:
+                break
 
         pbar.close()    
-        # progress.display(batch_index)
-        
-        result = dict(losses=losses.avg, 
-                      iteration=batch_index,
-                      top1=float(top1.avg.detach().cpu().numpy()),
-                      top5=float(top5.avg.detach().cpu().numpy()))
+        # progress.display(index)
+
+        result = dict(losses=losses, 
+                      iteration=index,
+                      top1=top1, top5=top5)        
         return result
     
     def optimize(self):
@@ -294,11 +292,24 @@ class Optimizer(object):
 
         self._model.to(self._device)
         self._model.train()
-    
+
+        plt.title("Learning Curve")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss Score")
+
+        fig, ax = plt.subplots()
+        
         start_time = time.time()
-        loss = 0
+        # loss = 0
+        losses = []
+        prev_loss = 0
+        prev_std = 0
+        prev_mean = 0
+        
         for epoch in range(self.config.EPOCHS):
             result = self.train_one_epoch(epoch)
+
+            val_result = None
             if epoch % 1 == 0:
                 val_result = self.validate(epoch)
             
@@ -309,18 +320,44 @@ class Optimizer(object):
             with open(self._log_csv, 'a') as f:
                 log = [epoch, 
                        result['iteration'], 
-                       result['losses'], 
-                       result['top1'],
-                       result['top5'],
+                       result['losses'].average, 
+                       result['top1'].average,
+                       result['top5'].average,
                        val_result['losses'], 
-                       val_result['top1'],
-                       val_result['top5'],
+                       val_result['top1'].average,
+                       val_result['top5'].average,
                        f'{time.time()-start_time:.6f}']
                 log = map(str, log)
                 f.write(','.join(log) + '\n')
 
-            continue
-        
+            print([result['losses'].mean,
+                   result['losses'].std])
+
+            # losses.append(result['losses'].average)
+
+            # plt.plot(xticks, losses, 'r-', label='Train Loss')
+            if epoch == 0:
+                prev_loss = result['losses'].average
+                prev_std = result['losses'].std
+                prev_mean = result['losses'].mean
+                
+            xticks = np.array([epoch, epoch + 1])
+            losses = np.array([prev_loss,result['losses'].average], dtype=np.float32)
+            ax.plot(xticks, losses, 'r-', label='Train Loss' if epoch == 0 else "")
+
+            stds = np.array([prev_std, result['losses'].std])
+            means = np.array([prev_mean, result['losses'].mean])
+            ax.fill_between(xticks, means - stds, 
+                            means + stds, color='red', alpha=0.3,
+                            interpolate=True, lw=0.0)
+            # ax.set_ylim(ymin=5)
+            ax.legend(loc="best")
+            plt.savefig(osp.join(self._log_dir, 'loss.png'), dpi=300)
+            
+            prev_loss = result['losses'].average
+            prev_std = result['losses'].std
+            prev_mean = result['losses'].mean
+            
             if epoch % self.config.SNAPSHOT_EPOCH == 0:
                 model_name = os.path.join(
                     self._log_dir, self.config.SNAPSHOT_NAME + '.pt')
@@ -331,8 +368,12 @@ class Optimizer(object):
                     'optimizer_state_dict': self._optimizer.state_dict(),
                     'loss': result['losses']}, 
                     os.path.join(self._log_dir, 'checkpoint.pth.tar'))
-                
-            print('{s:{c}^{n}}'.format(s='', n=120, c='-'))
+
+            del result
+            if val_result is not None:
+                del val_result
+            print('{s:{c}^{n}}'.format(s='', n=80, c='-'))
+            
         
         
 if __name__ == '__main__':
