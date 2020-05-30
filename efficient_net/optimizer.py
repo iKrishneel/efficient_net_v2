@@ -41,6 +41,7 @@ class Optimizer(object):
         model = EfficientNet(model_definition=config.MODEL)
         
         self._model = model
+        self._iteration = 0
         
         # device
         self._device = torch.device(
@@ -96,12 +97,12 @@ class Optimizer(object):
         self._log_headers = [
             'epoch',
             'iteration',
-            'train/loss',
-            'train/acc@1',
-            'train/acc@5',
-            'valid/loss',
-            'valid/acc@1',
-            'valid/acc@5',
+            'train_loss',
+            'train_acc1',
+            'train_acc5',
+            'valid_loss',
+            'valid_acc1',
+            'valid_acc5',
             'elapsed_time',
         ]
         
@@ -237,6 +238,7 @@ class Optimizer(object):
                          desc=self.pbar_desc(epoch=epoch))
         for index, (images, labels) in enumerate(self.train_dl):
             data_time.update(time.time() - start)
+            self._iteration += 1
             
             images = images.to(self._device)
             labels = labels.to(self._device)
@@ -313,7 +315,7 @@ class Optimizer(object):
             
             with open(self._log_csv, 'a') as f:
                 log = [epoch, 
-                       result['iteration'], 
+                       self._iteration,
                        result['losses'].average, 
                        result['top1'].average,
                        result['top5'].average,
@@ -323,7 +325,6 @@ class Optimizer(object):
                        f'{time.time()-start_time:.6f}']
                 log = map(str, log)
                 f.write(','.join(log) + '\n')
-
 
             if prev_tresult is not None:
                 xticks = np.array([epoch - 1, epoch])
@@ -366,23 +367,18 @@ class Optimizer(object):
             prev_vresult = val_result
             
             if epoch % self.config.SNAPSHOT_EPOCH == 0:
-                model_name = os.path.join(
-                    self._log_dir, self.config.SNAPSHOT_NAME + '.pt')
-                torch.save(self._model.state_dict(), model_name)
+                # model_name = osp.join(
+                #    self._log_dir, f'{self.config.SNAPSHOT_NAME}_{epoch}.pt')
+                # torch.save(self._model.state_dict(), model_name)
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': self._model.state_dict(),
                     'optimizer_state_dict': self._optimizer.state_dict(),
                     'loss': result['losses']}, 
-                    os.path.join(self._log_dir, 'checkpoint.pth.tar'))
+                    osp.join(self._log_dir, f'checkpoint_{epoch}.pth.tar'))
 
-            """
-            del result
-            if val_result is not None:
-                del val_result
-            """
+
             print('{s:{c}^{n}}'.format(s='', n=80, c='-'))
-            
         
         
 if __name__ == '__main__':
