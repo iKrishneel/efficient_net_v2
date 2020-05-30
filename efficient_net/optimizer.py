@@ -201,7 +201,8 @@ class Optimizer(object):
                 batch_time.update(time.time() - start)            
                 start = time.time()
 
-                break
+                if index == 4:
+                    break
 
             pbar.close()
             # progress.display(0)
@@ -260,7 +261,6 @@ class Optimizer(object):
             pbar.total = total_iter
             pbar.update(1)
             
-            # loss /= len(images)
             loss_data = loss.item()
             if np.isnan(loss_data):
                 raise ValueError('loss is nan while training')
@@ -296,67 +296,74 @@ class Optimizer(object):
         plt.title("Learning Curve")
         plt.xlabel("Epochs")
         plt.ylabel("Loss Score")
-
         fig, ax = plt.subplots()
         
         start_time = time.time()
-        # loss = 0
         losses = []
-        prev_loss = 0
-        prev_std = 0
-        prev_mean = 0
+
+        prev_tresult = None
+        prev_vresult = None
         
         for epoch in range(self.config.EPOCHS):
             result = self.train_one_epoch(epoch)
-
-            val_result = None
-            if epoch % 1 == 0:
-                val_result = self.validate(epoch)
+            val_result = self.validate(epoch)
             
             if self._lr_scheduler is not None:
                 self._lr_scheduler.step()
             
-            val_result = result
             with open(self._log_csv, 'a') as f:
                 log = [epoch, 
                        result['iteration'], 
                        result['losses'].average, 
                        result['top1'].average,
                        result['top5'].average,
-                       val_result['losses'], 
+                       val_result['losses'].average, 
                        val_result['top1'].average,
                        val_result['top5'].average,
                        f'{time.time()-start_time:.6f}']
                 log = map(str, log)
                 f.write(','.join(log) + '\n')
 
-            print([result['losses'].mean,
-                   result['losses'].std])
 
-            # losses.append(result['losses'].average)
-
-            # plt.plot(xticks, losses, 'r-', label='Train Loss')
-            if epoch == 0:
-                prev_loss = result['losses'].average
-                prev_std = result['losses'].std
-                prev_mean = result['losses'].mean
+            if prev_tresult is not None:
+                xticks = np.array([epoch - 1, epoch])
                 
-            xticks = np.array([epoch, epoch + 1])
-            losses = np.array([prev_loss,result['losses'].average], dtype=np.float32)
-            ax.plot(xticks, losses, 'r-', label='Train Loss' if epoch == 0 else "")
+                prev_loss = prev_tresult['losses'].average
+                prev_std = prev_tresult['losses'].std
+                prev_mean = prev_tresult['losses'].mean
 
-            stds = np.array([prev_std, result['losses'].std])
-            means = np.array([prev_mean, result['losses'].mean])
-            ax.fill_between(xticks, means - stds, 
-                            means + stds, color='red', alpha=0.3,
-                            interpolate=True, lw=0.0)
-            # ax.set_ylim(ymin=5)
-            ax.legend(loc="best")
-            plt.savefig(osp.join(self._log_dir, 'loss.png'), dpi=300)
+                vprev_loss = prev_vresult['losses'].average
+                vprev_std = prev_vresult['losses'].std
+                vprev_mean = prev_vresult['losses'].mean
+
+                losses = np.array([prev_loss, result['losses'].average])
+                vlosses = np.array([vprev_loss, val_result['losses'].average])
+                
+                stds = np.array([prev_std, result['losses'].std])
+                means = np.array([prev_mean, result['losses'].mean])
+                vstds = np.array([vprev_std, val_result['losses'].std])
+                vmeans = np.array([vprev_mean, val_result['losses'].mean])
+
+                acc = np.array([prev_tresult['top1'].average,
+                                result['top1'].average])
+                vacc = np.array([prev_vresult['top1'].average,
+                                val_result['top1'].average])
+                
+                plt.plot(xticks, losses, 'r-', label='Train Loss' if epoch == 1 else "")
+                plt.plot(xticks, vlosses, 'b-', label='Val Loss' if epoch == 1 else "")
+                # plt.plot(xticks, acc, 'g-', label='Train Acc' if epoch==1 else "")
+                # plt.plot(xticks, vacc, 'y-', label='Val Acc' if epoch==1 else "")
+                
+                plt.fill_between(xticks, means - stds, means + stds, color='r',
+                                 alpha=0.3, interpolate=True, lw=0.0)
+                plt.fill_between(xticks, vmeans - vstds, vmeans + vstds, color='b',
+                                 alpha=0.3, interpolate=True, lw=0.0)
+
+                plt.legend(loc='best')
+                plt.savefig(osp.join(self._log_dir, 'loss.png'), dpi=300)
             
-            prev_loss = result['losses'].average
-            prev_std = result['losses'].std
-            prev_mean = result['losses'].mean
+            prev_tresult = result
+            prev_vresult = val_result
             
             if epoch % self.config.SNAPSHOT_EPOCH == 0:
                 model_name = os.path.join(
@@ -369,9 +376,11 @@ class Optimizer(object):
                     'loss': result['losses']}, 
                     os.path.join(self._log_dir, 'checkpoint.pth.tar'))
 
+            """
             del result
             if val_result is not None:
                 del val_result
+            """
             print('{s:{c}^{n}}'.format(s='', n=80, c='-'))
             
         
