@@ -14,7 +14,7 @@ class TrainConfig(object):
 
     BATCH_SIZE: int = 1
         
-    VAL_BATCH_SIZE: int = 1
+    VAL_BATCH_SIZE: int = 64
     
     EPOCHS: int = 200
 

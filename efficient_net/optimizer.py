@@ -12,6 +12,7 @@ plt.style.use('dark_background')
 import tqdm
 import torch
 import torch.nn as nn
+import torchvision
 from torchvision import transforms
 
 from efficient_net.network import EfficientNetX as EfficientNet
@@ -57,28 +58,43 @@ class Optimizer(object):
 
         # self.apply(self.weight_init)
         
-        transform = transforms.Compose(
-            [transforms.RandomResizedCrop(config.INPUT_SHAPE[1:]),
-             # transforms.RandomCrop(config.INPUT_SHAPE[1:], pad_if_needed=True),
-             transforms.Grayscale(num_output_channels=3),
-             transforms.ColorJitter([0.5, 2], [0.5, 2], 0.5, 0.5),
-             transforms.RandomAffine(degrees=180, scale=(0.2, 2.0)),
-             transforms.RandomHorizontalFlip(p=0.5),
-             transforms.ToTensor()])
+        dtransforms = {
+            'train': transforms.Compose(
+                [transforms.Resize([256, 256]),
+                 transforms.RandomResizedCrop(config.INPUT_SHAPE[1:]),
+                 transforms.Grayscale(num_output_channels=3),
+                 transforms.ColorJitter([0.5, 2], [0.5, 2], 0.5, 0.5),
+                 transforms.RandomAffine(degrees=180, scale=(0.2, 2.0)),
+                 transforms.RandomHorizontalFlip(p=0.5),
+                 transforms.ToTensor(),
+                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                      std=[0.229, 0.224, 0.225])]),
+            'val': transforms.Compose(
+                [transforms.Resize(config.INPUT_SHAPE[1:]),
+                 transforms.ToTensor(),
+                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                      std=[0.229, 0.224, 0.225])])
+        }
         
-        train_ds, val_ds = create_loader(config.DATASET)
+        # train_ds, val_ds = create_loader(config.DATASET)
+        train_ds = torchvision.datasets.ImageNet(
+            config.DATASET, split='train', transform=dtransforms['train'])
         self.train_dl = torch.utils.data.DataLoader(
-            train_ds, batch_size=config.BATCH_SIZE, shuffle=True)
-        self.train_dl.transform = transform
+            train_ds, batch_size=config.BATCH_SIZE, shuffle=True,
+            num_workers=os.cpu_count())
+        # self.train_dl.transform = dtransforms['train']
+
+        val_ds = torchvision.datasets.ImageNet(
+            config.DATASET, split='val', transform=dtransforms['val'])
         self.val_dl = torch.utils.data.DataLoader(
-            val_ds, batch_size=config.VAL_BATCH_SIZE, shuffle=True)
-        #self.val_dl.transform = transform
+            val_ds, batch_size=config.VAL_BATCH_SIZE, shuffle=True,
+            num_workers=os.cpu_count())
+        # self.val_dl.transform = dtransforms['val']
 
         self._criterion = nn.CrossEntropyLoss().to(self._device)
         self._optimizer = torch.optim.Adam(
             params=self._model.parameters(),
             lr=config.LR,
-            # momentum=config.MOMENTUM,
             weight_decay=config.WEIGHT_DECAY)
         
         self._lr_scheduler = torch.optim.lr_scheduler.StepLR(
@@ -92,7 +108,7 @@ class Optimizer(object):
             self._model.load_state_dict(checkpoint['model_state_dict'])
             # self._optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         
-        # self._model = nn.DataParallel(self._model)
+        self._model = nn.DataParallel(self._model)
         
         self._log_headers = [
             'epoch',
@@ -202,11 +218,8 @@ class Optimizer(object):
                 batch_time.update(time.time() - start)            
                 start = time.time()
 
-                if index == 4:
-                    break
-
             pbar.close()
-            # progress.display(0)
+            progress.display(0)
             
         result = dict(losses=losses, 
                       iteration=index,
@@ -276,11 +289,8 @@ class Optimizer(object):
             running_loss += loss_data
             start = time.time()
 
-            if index == 5:
-                break
-
         pbar.close()    
-        # progress.display(index)
+        progress.display(index)
 
         result = dict(losses=losses, 
                       iteration=index,
@@ -361,7 +371,7 @@ class Optimizer(object):
                                  alpha=0.3, interpolate=True, lw=0.0)
 
                 plt.legend(loc='best')
-                plt.savefig(osp.join(self._log_dir, 'loss.png'), dpi=300)
+                plt.savefig(osp.join(self._log_dir, 'loss.png'))
             
             prev_tresult = result
             prev_vresult = val_result
