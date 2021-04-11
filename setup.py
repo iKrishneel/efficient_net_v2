@@ -1,34 +1,36 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#! /usr/bin/env python
 
-
-import os
-import pkg_resources
-import sys
-
-from setuptools import find_packages
 from setuptools import setup
+from setuptools import find_packages
 
 
-setup_requires = []
+try:
+    with open('README.md', 'r') as f:
+        readme = f.read()
+except Exception:
+    readme = str('')
+
+
+# write all package dependencies here
 install_requires = [
-    'opencv-python',
+    'colorlog',
     'numpy',
     'matplotlib',
+    'opencv-python',
+    'pillow',
     'torch',
     'torchvision',
     'tqdm',
+    'scipy',
+    'pytest'
 ]
 
-
 setup(
-    name='efficient net',
+    name='efficient_net_v2',
     version='0.0.0',
-    description='',
-    author='Krishneel Chaudhary',
-    author_email='krishneel@krishneel',
-    license='None',
+    long_description=readme,
     packages=find_packages(),
-    setup_requires=setup_requires,
-    install_requires=install_requires
+    zip_safe=False,
+    install_requires=install_requires,
+    test_suite='tests',
 )
