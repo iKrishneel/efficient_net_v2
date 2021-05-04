@@ -13,7 +13,7 @@ except Exception:
 
 # write all package dependencies here
 install_requires = [
-    'colorlog',
+    'colorlogs',
     'numpy',
     'matplotlib',
     'opencv-python',
