@@ -108,7 +108,7 @@ _C.HEAD.FLAT.end_dim = -1
 _C.HEAD.FC = CN()
 _C.HEAD.FC.OPS = 'Linear'
 _C.HEAD.FC.in_features = 1792
-_C.HEAD.FC.out_features = 91
+_C.HEAD.FC.out_features = 20
 
 
 # datasets
@@ -123,6 +123,8 @@ _C.SOLVER.LR_DECAY = 0.1
 _C.SOLVER.LR_DECAY_STEP = 10
 _C.SOLVER.EPOCHS = 100
 
+
+_C.OUTPUT_DIR = './'
 
 def get_cfg():
     return _C.clone()
