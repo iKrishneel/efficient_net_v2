@@ -53,21 +53,36 @@ def get_transforms() -> dict:
 class Coco2017Dataset(torch.utils.data.Dataset):
 
     def __init__(
-            self, root: str, data_type='train', num_class: int = 91
+            self, root: str, data_type='train', num_class: int = 91,
+            **kwargs: dict
     ):
-        data_transforms = get_transforms()
+        self.data_transforms = get_transforms()
         file_name = 'train2017' if data_type == 'train' else  'val2017'
         self.dataset = CocoDetection(
             root=osp.join(root, file_name),
             annFile=osp.join(
                 root, f'annotations/instances_{file_name}.json'
             ),
-            transform=data_transforms[data_type],
+            # transform=data_transforms[data_type],
         )
 
+        """
+        logger.info(f'Dataset DRY Run: {len(dataset)}')
+        self.dataset = []
+        for d in tqdm.tqdm(dataset):
+            if len(d[1]) == 0:
+                continue
+            self.dataset.append(d)
+        """
+        
+        self.data_type = data_type
         self.num_class = num_class
+        np.random.seed(256)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int, use_cropped: bool = True):
+        if use_cropped:
+            return self.get_cropped_instance(index)
+        
         image, targets = self.dataset.__getitem__(index)
 
         labels = torch.zeros(self.num_class, dtype=torch.int64)
@@ -75,6 +90,36 @@ class Coco2017Dataset(torch.utils.data.Dataset):
             cat_id = target['category_id']
             labels[cat_id] = cat_id
         return image, labels
+
+    def get_cropped_instance(self, index: int):
+
+        while True:
+            image, targets = self.dataset.__getitem__(index)
+            if len(targets) > 0:
+                break
+            index = np.random.randint(0, len(self.dataset))
+            
+        selected = np.random.randint(0, len(targets))
+        target = targets[selected]
+
+        category_id = target['category_id']
+        bbox = np.array(target['bbox'], dtype=np.intp)
+        center = np.average(
+            [bbox[:2], bbox[:2] + bbox[2:]], axis=0
+        )
+
+        new_size = np.array(
+            (
+                np.random.randint(bbox[2], 2 * np.maximum(bbox[2], 1)),
+                np.random.randint(bbox[3], 2 * np.maximum(bbox[3], 1))
+            ),
+        )
+        
+        x1, y1 = np.maximum(center - new_size / 2, [0, 0]).astype(np.intp)
+        x2, y2 = np.minimum(center + new_size / 2, image.size).astype(np.intp)
+        image = image.crop([x1 + 1, y1 + 1, x2 - 1, y2 - 1])
+
+        return self.data_transforms[self.data_type](image), category_id
 
     def __len__(self):
         return len(self.dataset)
@@ -111,8 +156,8 @@ class Optimizer(object):
         self.model = EfficientNetV2(self.cfg)
         self.model = self.model.to(self.device)
         
-        # self.criterion = nn.CrossEntropyLoss().to(self.device)
-        self.criterion = nn.BCELoss()
+        self.criterion = nn.CrossEntropyLoss().to(self.device)
+        # self.criterion = nn.BCELoss()
         self.optim = torch.optim.Adam(
             params = self.model.parameters(),
             lr=self.cfg.SOLVER.LR,
@@ -130,8 +175,7 @@ class Optimizer(object):
                 total_params += np.prod(parameter.size())
         logger.info(f'total_params: {total_params}')
 
-        self.log_dir = create_logging_dir(self.cfg.OUTPUT_DIR)
-        logger.info(f'Output Directory: {self.log_dir}')
+        self.log_dir = None
 
     def run(self):
         self()
@@ -146,12 +190,16 @@ class Optimizer(object):
             for epoch in range(epochs):
                 epoch_pbar.set_description(
                     desc=f'Epoch {epoch + 1} | LOSS: {epoch_loss} ' +
-                    '| LR: {lr} | BATCH: {batch}',
+                    f'| LR: {lr} | BATCH: {batch}',
                     refresh=True
                 )
                 epoch_pbar.update(1)
                 epoch_loss = self.train_one_epoch(epoch=epoch)
 
+                if self.log_dir is None:
+                    self.log_dir = create_logging_dir(self.cfg.OUTPUT_DIR)
+                    logger.info(f'Output Directory: {self.log_dir}')
+                
                 torch.save(
                     {'model_state_dict': self.model.state_dict(),},
                     osp.join(self.log_dir, f'checkpoint.pth.tar')
@@ -164,7 +212,7 @@ class Optimizer(object):
         total_iter = len(self.train_dl)
         with tqdm.tqdm(total=total_iter) as pbar:
             for index, (images, targets) in enumerate(self.train_dl):
-
+                
                 images = images.to(self.device)
                 targets = targets.to(self.device)
 
@@ -172,9 +220,9 @@ class Optimizer(object):
                 result = self.model(images)
                 loss = self.criterion(result, targets)
 
-                loss_data = loss.data()
-                running_loss += loss_data
-                assert np.isnan(loss_data)
+                # loss_data = loss.data()
+                running_loss += loss
+                assert not (torch.isnan(loss) or torch.isinf(loss))
 
                 loss.backward()
                 self.optim.step()

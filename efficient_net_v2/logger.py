@@ -59,7 +59,7 @@ class Formatter(logging.Formatter):
 class ColoredLogger(logging.Logger):
 
     FORMAT = (
-        ' %(icon)s%(levelname)s %(hash)s %(lineno)s >>> %(message)s'
+        ' %(icon)s%(levelname)s #%(lineno)s >>> %(message)s'
     )
 
     def __init__(self, name):
