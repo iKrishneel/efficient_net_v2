@@ -10,20 +10,25 @@ from ..layers import ConvBNA, MBConv, FusedMBConv
 
 class EfficientNetV2(nn.Module):
 
-    def __init__(self, cfg: CN):
+    def __init__(self, cfg: CN, in_channels: int = 3):
         super(EfficientNetV2, self).__init__()
 
-        input_shape = cfg.get('INPUTS').get('SHAPE')
+        # input_shape = cfg.get('INPUTS').get('SHAPE')
         backbone = cfg['BACKBONE']
-        head = cfg['HEAD']
-        assert len(input_shape) == 3
+        # assert len(input_shape) == 3
+        # in_channels = input_shape[0]
 
-        in_channels = input_shape[0]
         layers, in_channels = self.build(backbone, in_channels)
         self.backbone = nn.Sequential(*layers)
 
-        layers, _ = self.build(head, in_channels)
-        self.head = nn.Sequential(*layers)
+        try:
+            head = cfg['HEAD']
+            layers, in_channels = self.build(head, in_channels)
+            self.head = nn.Sequential(*layers)
+        except KeyError:
+            self.head = None
+
+        self.out_channels = in_channels        
 
     def build(self, nodes, in_channels):
         layers = []
@@ -75,5 +80,6 @@ class EfficientNetV2(nn.Module):
 
     def forward(self, x):
         x = self.backbone(x)
-        x = self.head(x)
+        if self.head is not None:
+            x = self.head(x)
         return x

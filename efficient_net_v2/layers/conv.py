@@ -7,13 +7,15 @@ class ConvBNA(nn.Module):
 
     def __init__(
             self, in_channels: int, out_channels: int,
-            activation=nn.ReLU(inplace=True), use_bn: bool = True,
-            **kwargs: dict
+            use_bn: bool = True, **kwargs: dict
     ):
         super(ConvBNA, self).__init__()
 
         momentum = kwargs.pop('momentum', 0.1)
         eps = kwargs.pop('eps', 1e-5)
+        self.activation = kwargs.pop('activation', nn.ReLU(inplace=True))
+        self.stride = kwargs.get('stride', 1)
+        self.out_channels = out_channels
 
         self.conv = nn.Conv2d(
             in_channels=in_channels,
@@ -25,7 +27,6 @@ class ConvBNA(nn.Module):
             momentum=momentum,
             eps=eps
         ) if use_bn else None
-        self.activation = activation
 
     def forward(self, inp):
         x = self.conv(inp)

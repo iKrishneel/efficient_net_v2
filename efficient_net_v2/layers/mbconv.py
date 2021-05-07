@@ -20,12 +20,12 @@ class MBConv(nn.Module):
     ):
         super(MBConv, self).__init__()
 
-        out_channels = max(in_channels, out_channels)
+        self.out_channels = max(in_channels, out_channels)
         hidden_channels = in_channels * max(expansion, 1)
         reduction = kwargs.get('reduction', 4)
         knxn = kwargs.get('knxn', 3)
-        stride = kwargs.get('stride', 1)
         bias = kwargs.get('bias', False)
+        self.stride = kwargs.get('stride', 1)
 
         self.conv1 = ConvBNA(
             in_channels=in_channels,
@@ -39,7 +39,7 @@ class MBConv(nn.Module):
             groups=hidden_channels,
             kernel_size=knxn,
             padding=1,
-            stride=stride,
+            stride=self.stride,
             bias=bias
         )
         
@@ -76,19 +76,19 @@ class FusedMBConv(nn.Module):
     ):
         super(FusedMBConv, self).__init__()
 
-        out_channels = max(in_channels, out_channels)
+        self.out_channels = max(in_channels, out_channels)
         hidden_channels = in_channels * max(expansion, 1)
         reduction = kwargs.get('reduction', 4)
         knxn = kwargs.get('knxn', 3)
-        stride = kwargs.get('stride', 1)
         bias = kwargs.get('bias', False)
+        self.stride = kwargs.get('stride', 1)
 
         self.conv1 = ConvBNA(
             in_channels=in_channels,
             out_channels=hidden_channels,
             kernel_size=knxn,
             padding=1,
-            stride=stride,
+            stride=self.stride,
             bias=bias
         )
         self.se = SE(

@@ -238,6 +238,10 @@ class Optimizer(object):
         self.model.eval()
         with torch.no_grad():
             pass
+
+    def load_state_dict(self, path: str):
+        state_dict = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(state_dict, strict=strict)
     
 
 def main(args):

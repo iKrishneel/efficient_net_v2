@@ -1,0 +1,41 @@
+VERSION: 2
+INPUT:
+  MASK_FORMAT: "bitmask"
+MODEL:
+  META_ARCHITECTURE: "GeneralizedRCNN"
+  BACKBONE:
+    NAME: "build_effnet_backbone"
+  WEIGHTS: ""
+  MASK_ON: True
+  LOAD_PROPOSALS: False
+  RETINANET:
+    NUM_CLASSES: &num_classes 80
+  ROI_HEADS:
+    IN_FEATURES: ["stage7", ]
+    NUM_CLASSES: *num_classes
+    NAME: "StandardROIHeads"
+  ROI_BOX_HEAD:
+    NAME: "FastRCNNConvFCHead"
+    NUM_FC: 1
+    NUM_CONV: 2
+    NORM: "BN"
+  RPN:
+    IN_FEATURES: ["stage7",]
+    PRE_NMS_TOPK_TRAIN: 6000
+    POST_NMS_TOPK_TRAIN: 1000    
+  PROPOSAL_GENERATOR:
+    NAME: "RPN"
+  SEM_SEG_HEAD:
+    NUM_CLASSES: *num_classes
+SOLVER:
+  IMS_PER_BATCH: 2
+  BASE_LR: 0.1
+  STEPS: (60000, 800000)
+  MAX_ITER: 20000
+INPUT:
+  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+DATALOADER:
+  NUM_WORKERS: 2
+DATASETS:
+  TRAIN: ("coco_2017_train", )  
+  TEST: ("coco_2017_val", )
