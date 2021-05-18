@@ -12,7 +12,7 @@ import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchvision.datasets import CocoDetection
+from torchvision.datasets import CocoDetection, CIFAR10, ImageNet
 from torchvision import transforms
 
 from yacs.config import CfgNode as CN
@@ -30,11 +30,11 @@ def get_transforms() -> dict:
     return {
         'train': transforms.Compose(
             [
+                transforms.RandomResizedCrop((256, 256)),
                 transforms.Resize([224, 224]),
-                # transforms.RandomResizedCrop(config.INPUT_SHAPE[1:]),
                 # transforms.Grayscale(num_output_channels=3),
                 # transforms.ColorJitter([0.5, 2], [0.5, 2], 0.5, 0.5),
-                # transforms.RandomAffine(degrees=180, scale=(0.2, 2.0)),
+                transforms.RandomAffine(degrees=180, scale=(0.2, 2.0)),
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.ToTensor(),
                 norm,
@@ -43,6 +43,7 @@ def get_transforms() -> dict:
         'val': transforms.Compose(
             [
                 # transforms.Resize(config.INPUT_SHAPE[1:]),
+                transforms.Resize([224, 224]),
                 transforms.ToTensor(),
                 norm,
             ]
@@ -73,7 +74,7 @@ class Coco2017Dataset(torch.utils.data.Dataset):
 
         self.data_type = data_type
         self.num_class = num_class
-        np.random.seed(256)
+        ntreep.random.seed(256)
 
     def __getitem__(self, index: int, use_cropped: bool = True):
         if use_cropped:
@@ -137,6 +138,7 @@ class Optimizer(object):
     cfg: CN
     train_dl: DataLoader
     val_dl: DataLoader = None
+    weight_path: str = None
 
     def __post_init__(self):
         assert self.cfg is not None
@@ -149,6 +151,15 @@ class Optimizer(object):
 
         self.model = EfficientNetV2(self.cfg)
         self.model = self.model.to(self.device)
+        self.model = nn.DataParallel(self.model)
+
+        if self.weight_path is not None:
+            assert osp.isfile(self.weight_path), f'{self.weight} not found'
+            state_dict = torch.load(self.weight_path)['model_state_dict']
+            self.model.load_state_dict(state_dict, strict=True)
+            logger.info(f'Loaded Model Weights {self.weight_path}')
+        else:
+            logger.info('Using initialized weights')
 
         self.criterion = nn.CrossEntropyLoss().to(self.device)
         # self.criterion = nn.BCELoss()
@@ -246,22 +257,28 @@ def main(args):
     num_workers = cfg.DATASETS.NUM_WORKER
     batch_size = cfg.SOLVER.BATCH_SIZE
 
+    transforms = get_transforms()
     train_dl = DataLoader(
-        Coco2017Dataset(root=args.root),
+        # Coco2017Dataset(root=args.root),
+        # CIFAR10(root=args.root, train=True, download=False, transform=transforms['train']),
+        ImageNet(root=args.root, split='train', transform=transforms['train']),
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=True,
     )
     val_dl = DataLoader(
-        Coco2017Dataset(root=args.root, data_type='val'),
+        # Coco2017Dataset(root=args.root, data_type='val'),
+        # CIFAR10(root=args.root, train=False, download=False, transform=transforms['val']),
+        ImageNet(root=args.root, split='val', transform=transforms['val']),
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=False,
     )
     optimizer = Optimizer(
         cfg=cfg,
-        train_dl=train_dl,
-    )  # val_dl=val_dl)
+        weight_path=args.weights,
+        train_dl=train_dl,  # val_dl=val_dl
+    )
     optimizer()
 
 
@@ -270,6 +287,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--root', type=str, required=True)
     parser.add_argument('--output_dir', type=str, required=True)
+    parser.add_argument('--weights', type=str, required=False, default=None)
     args = parser.parse_args()
 
     main(args)

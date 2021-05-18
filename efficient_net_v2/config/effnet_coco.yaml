@@ -1,7 +1,6 @@
 VERSION: 2
 INPUT:
   MASK_FORMAT: "bitmask"
-  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)  
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   BACKBONE:
@@ -10,7 +9,7 @@ MODEL:
   MASK_ON: True
   LOAD_PROPOSALS: False
   RETINANET:
-    NUM_CLASSES: &num_classes 1
+    NUM_CLASSES: &num_classes 80
   ROI_HEADS:
     IN_FEATURES: ["stage7", ]
     NUM_CLASSES: *num_classes
@@ -18,27 +17,25 @@ MODEL:
   ROI_BOX_HEAD:
     NAME: "FastRCNNConvFCHead"
     NUM_FC: 1
-    NUM_CONV: 3
+    NUM_CONV: 2
     NORM: "BN"
   RPN:
     IN_FEATURES: ["stage7",]
-    PRE_NMS_TOPK_TRAIN: 1000
-    POST_NMS_TOPK_TRAIN: 100    
+    PRE_NMS_TOPK_TRAIN: 6000
+    POST_NMS_TOPK_TRAIN: 1000    
   PROPOSAL_GENERATOR:
     NAME: "RPN"
   SEM_SEG_HEAD:
     NUM_CLASSES: *num_classes
 SOLVER:
-  IMS_PER_BATCH: 1
-  BASE_LR: 0.02
-  STEPS: (210000, 250000)
-  MAX_ITER: 270000
-  WARMUP_FACTOR: 0.01
-  WARMUP_ITERS: 100
-  CHECKPOINT_PERIOD: 2000
+  IMS_PER_BATCH: 12
+  BASE_LR: 0.1
+  STEPS: (60000, 800000)
+  MAX_ITER: 100000
+INPUT:
+  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
 DATALOADER:
-  NUM_WORKERS: 2
+  NUM_WORKERS: 8
 DATASETS:
-  TRAIN: ("penn_fudan", )
-  # TRAIN: ("coco_2017_train", )  
-  # TEST: ("coco_2017_val", )
+  TRAIN: ("coco_2017_train", )  
+  TEST: ("coco_2017_val", )
