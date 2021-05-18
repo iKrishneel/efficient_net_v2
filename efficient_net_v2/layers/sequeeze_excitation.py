@@ -7,10 +7,12 @@ from ..utils import make_divisible
 
 
 class SqueezeExcitation(nn.Module):
-
     def __init__(
-            self, in_channels: int, reduction: int = 4,
-            out_channels: int = -1, **kwargs: dict
+        self,
+        in_channels: int,
+        reduction: int = 4,
+        out_channels: int = -1,
+        **kwargs: dict,
     ):
         super(SqueezeExcitation, self).__init__()
         assert in_channels > 0
@@ -18,13 +20,9 @@ class SqueezeExcitation(nn.Module):
         num_reduced_channels = make_divisible(
             max(out_channels, 8) // reduction, 8
         )
-        
-        self.fc1 = nn.Conv2d(
-            in_channels, num_reduced_channels, kernel_size=1
-        )
-        self.fc2 = nn.Conv2d(
-            num_reduced_channels, in_channels, kernel_size=1
-        )
+
+        self.fc1 = nn.Conv2d(in_channels, num_reduced_channels, kernel_size=1)
+        self.fc2 = nn.Conv2d(num_reduced_channels, in_channels, kernel_size=1)
         self.activation = nn.ReLU(inplace=True)
         self.sigmoid = nn.Sigmoid()
 

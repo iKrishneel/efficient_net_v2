@@ -6,17 +6,16 @@ from .conv import ConvBNA
 from .sequeeze_excitation import SqueezeExcitation as SE
 
 
-__all__ = [
-    'MBConv',
-    'FusedMBConv'
-]
+__all__ = ['MBConv', 'FusedMBConv']
 
 
 class MBConv(nn.Module):
-
     def __init__(
-            self, in_channels: int, expansion: int,
-            out_channels: int = -1, **kwargs: dict
+        self,
+        in_channels: int,
+        expansion: int,
+        out_channels: int = -1,
+        **kwargs: dict,
     ):
         super(MBConv, self).__init__()
 
@@ -31,7 +30,7 @@ class MBConv(nn.Module):
             in_channels=in_channels,
             out_channels=hidden_channels,
             kernel_size=1,
-            bias=bias
+            bias=bias,
         )
         self.conv2 = ConvBNA(
             in_channels=hidden_channels,
@@ -40,21 +39,25 @@ class MBConv(nn.Module):
             kernel_size=knxn,
             padding=1,
             stride=self.stride,
-            bias=bias
+            bias=bias,
         )
-        
-        self.se = SE(
-            in_channels=hidden_channels,
-            reduction=reduction,
-            out_channels=in_channels,
-        ) if reduction > 0 else None
-        
+
+        self.se = (
+            SE(
+                in_channels=hidden_channels,
+                reduction=reduction,
+                out_channels=in_channels,
+            )
+            if reduction > 0
+            else None
+        )
+
         self.conv3 = ConvBNA(
             in_channels=hidden_channels,
             out_channels=out_channels,
             kernel_size=1,
             bias=bias,
-            activation=None,        
+            activation=None,
         )
 
     def forward(self, inp):
@@ -69,10 +72,12 @@ class MBConv(nn.Module):
 
 
 class FusedMBConv(nn.Module):
-
     def __init__(
-            self, in_channels: int, expansion: int,
-            out_channels: int = -1, **kwargs: dict
+        self,
+        in_channels: int,
+        expansion: int,
+        out_channels: int = -1,
+        **kwargs: dict,
     ):
         super(FusedMBConv, self).__init__()
 
@@ -89,19 +94,23 @@ class FusedMBConv(nn.Module):
             kernel_size=knxn,
             padding=1,
             stride=self.stride,
-            bias=bias
+            bias=bias,
         )
-        self.se = SE(
-            in_channels=hidden_channels,
-            reduction=reduction,
-            out_channels=in_channels
-        ) if reduction > 0 else None
+        self.se = (
+            SE(
+                in_channels=hidden_channels,
+                reduction=reduction,
+                out_channels=in_channels,
+            )
+            if reduction > 0
+            else None
+        )
         self.conv2 = ConvBNA(
             in_channels=hidden_channels,
             out_channels=out_channels,
             kernel_size=1,
             activation=None,
-            bias=bias
+            bias=bias,
         )
 
     def forward(self, inp):

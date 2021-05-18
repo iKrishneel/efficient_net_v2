@@ -16,7 +16,7 @@ def test_fused_mbconv():
     x = torch.randn((1, in_c, 32, 32), dtype=torch.float32, requires_grad=False)
     r = m(x)
     assert x.shape == r.shape
-    
+
 
 def test_mbconv():
     in_c = 272
@@ -28,7 +28,7 @@ def test_mbconv():
     x = torch.randn((1, in_c, 32, 32), dtype=torch.float32, requires_grad=False)
     r = m(x)
     assert x.shape == r.shape
-    
+
 
 if __name__ == '__main__':
 

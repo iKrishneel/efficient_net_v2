@@ -4,7 +4,7 @@
 def make_divisible(v, divisor=8, min_value=None):
     """
     The channel number of each layer should be divisable by 8.
-    The function is taken from 
+    The function is taken from
     github.com/rwightman/pytorch-image-models/master/timm/models/layers/helpers.py
     """
     min_value = min_value or divisor

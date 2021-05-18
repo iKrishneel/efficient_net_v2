@@ -16,7 +16,7 @@ def cfg():
 def data(cfg):
     in_shape = cfg.get('INPUTS').get('SHAPE')
     return torch.randn(in_shape, dtype=torch.float32).unsqueeze(0)
-    
+
 
 def test_net(cfg, data):
 

@@ -4,10 +4,12 @@ import torch.nn as nn
 
 
 class ConvBNA(nn.Module):
-
     def __init__(
-            self, in_channels: int, out_channels: int,
-            use_bn: bool = True, **kwargs: dict
+        self,
+        in_channels: int,
+        out_channels: int,
+        use_bn: bool = True,
+        **kwargs: dict,
     ):
         super(ConvBNA, self).__init__()
 
@@ -18,15 +20,15 @@ class ConvBNA(nn.Module):
         self.out_channels = out_channels
 
         self.conv = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            **kwargs
+            in_channels=in_channels, out_channels=out_channels, **kwargs
         )
-        self.bn = nn.BatchNorm2d(
-            num_features=out_channels,
-            momentum=momentum,
-            eps=eps
-        ) if use_bn else None
+        self.bn = (
+            nn.BatchNorm2d(
+                num_features=out_channels, momentum=momentum, eps=eps
+            )
+            if use_bn
+            else None
+        )
 
     def forward(self, inp):
         x = self.conv(inp)

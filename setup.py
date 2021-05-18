@@ -22,7 +22,7 @@ install_requires = [
     'torchvision',
     'tqdm',
     'scipy',
-    'pytest'
+    'pytest',
 ]
 
 setup(

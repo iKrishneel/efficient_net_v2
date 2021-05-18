@@ -9,7 +9,6 @@ from ..layers import ConvBNA, MBConv, FusedMBConv
 
 
 class EfficientNetV2(nn.Module):
-
     def __init__(self, cfg: CN, in_channels: int = 3):
         super(EfficientNetV2, self).__init__()
 
@@ -28,7 +27,7 @@ class EfficientNetV2(nn.Module):
         except KeyError:
             self.head = None
 
-        self.out_channels = in_channels        
+        self.out_channels = in_channels
 
     def build(self, nodes, in_channels):
         layers = []
@@ -40,11 +39,9 @@ class EfficientNetV2(nn.Module):
                 in_channels = node.get('CHANNELS')
 
         return layers, in_channels
-        
-    def create_layer(
-            self, node: CN, in_channels: int, stride: int
-    ):
-        node = deepcopy(node)        
+
+    def create_layer(self, node: CN, in_channels: int, stride: int):
+        node = deepcopy(node)
 
         ops = node.pop('OPS')
         out_channels = node.pop('CHANNELS', None)
@@ -55,25 +52,34 @@ class EfficientNetV2(nn.Module):
 
         if ops == 'conv':
             layer = ConvBNA(
-                in_channels=in_channels, out_channels=out_channels,
-                kernel_size=kernel_size, stride=stride, padding=padding
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
             )
         elif ops == 'mbconv':
             layer = MBConv(
-                in_channels=in_channels, expansion=expansion,
-                out_channels=out_channels, knxn=kernel_size,
-                stride=stride, reduction=se
+                in_channels=in_channels,
+                expansion=expansion,
+                out_channels=out_channels,
+                knxn=kernel_size,
+                stride=stride,
+                reduction=se,
             )
         elif ops == 'fused_mbconv':
             layer = FusedMBConv(
-                in_channels=in_channels, expansion=expansion,
-                out_channels=out_channels, knxn=kernel_size,
-                stride=stride, reduction=se
+                in_channels=in_channels,
+                expansion=expansion,
+                out_channels=out_channels,
+                knxn=kernel_size,
+                stride=stride,
+                reduction=se,
             )
         else:
             layer = getattr(nn, ops)
             if not issubclass(layer, nn.Module):
-                raise ValueError(f'Unknown layer type {ops}')            
+                raise ValueError(f'Unknown layer type {ops}')
             layer = layer(**node)
 
         return layer
