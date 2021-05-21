@@ -89,3 +89,34 @@ class EfficientNetV2(nn.Module):
         if self.head is not None:
             x = self.head(x)
         return x
+
+    def stage_forward(self, x):
+        s0 = self.backbone[0](x)
+        s1 = self.backbone[1:3](s0)
+        s2 = self.backbone[3:7](s1)
+        s3 = self.backbone[7:11](s2)
+        s4 = self.backbone[11:17](s3)
+        s5 = self.backbone[17:26](s4)
+        s6 = self.backbone[26:](s5)
+
+        return {
+            # 's0': s0,
+            # 's1': s1,
+            's2': s2,
+            's3': s3,
+            's4': s4,
+            's5': s5,
+            's6': s6
+        }
+
+    @property
+    def stage_indices(self):
+        return {
+            's0': 1,
+            's1': 3,
+            's2': 7,
+            's3': 11,
+            's4': 17,
+            's5': 26,
+            's6': 41
+        }
