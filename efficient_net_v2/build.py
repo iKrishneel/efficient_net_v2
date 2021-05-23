@@ -6,13 +6,17 @@ from dataclasses import dataclass
 from typing import Collection
 
 import torch
+
 # from torch.optim import Optimizer
 from torch.cuda.amp import autocast
 
 from detectron2.config import CfgNode, get_cfg
 from detectron2.engine.defaults import AMPTrainer
 from detectron2.data import (
-    detection_utils, DatasetCatalog, MetadataCatalog, DatasetMapper
+    detection_utils,
+    DatasetCatalog,
+    MetadataCatalog,
+    DatasetMapper,
 )
 from detectron2.data.build import build_detection_train_loader
 import detectron2.data.transforms as T
@@ -29,21 +33,20 @@ from efficient_net_v2.model.backbone import build_effnet_backbone  # NOQA
 
 
 def register_dataset(
-        dataset_name: str, dataset_root: str = None,
-        is_train: bool = True, dataset_type: str = 'coco'
+    dataset_name: str,
+    dataset_root: str = None,
+    is_train: bool = True,
+    dataset_type: str = 'coco',
 ):
     if dataset_type == 'coco':
         from efficient_net_v2.datasets import CocoDataset
+
         name = 'coco_2017_train' if is_train else 'coco_2017_val'
-        dataset = CocoDataset(
-            coco_names='./datasets/coco.names', name=name
-        )
+        dataset = CocoDataset(coco_names='./datasets/coco.names', name=name)
     elif dataset_type == 'penn':
         from efficient_net_v2.datasets import PennFudanDataset
 
-        dataset = PennFudanDataset(
-            root=dataset_root, is_train=is_train
-        )
+        dataset = PennFudanDataset(root=dataset_root, is_train=is_train)
         MetadataCatalog.get(dataset_name).set(
             thing_classes=['person'], thing_color=[(0, 255, 0)]
         )
@@ -73,14 +76,10 @@ class AccumGradAMPTrainer(AMPTrainer):
     def run_step(self):
         cls_name = self.__class__.__name__
 
-        assert (
-            self.model.training,
-            f'[{cls_name}] model was changed to eval mode!',
-        )
-        assert (
-            torch.cuda.is_available(),
-            f'[{cls_name}] CUDA is required for AMP Training',
-        )
+        assert self.model.training, \
+            f'[{cls_name}] model was changed to eval mode!'
+        assert torch.cuda.is_available(), \
+            f'[{cls_name}] CUDA is required for AMP Training'
 
         start = time.perf_counter()
         data_time = time.perf_counter() - start
@@ -151,11 +150,9 @@ class Trainer(DefaultTrainer):
                         cfg.INPUT.MAX_SIZE_TRAIN,
                         cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING,
                     ),
-                    T.RandomCrop(
-                        cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE
-                    ),
-                    T.RandomFlip()
-                ]
+                    T.RandomCrop(cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE),
+                    T.RandomFlip(),
+                ],
             )
         return build_detection_train_loader(cfg, mapper=mapper)
 

@@ -12,7 +12,7 @@ import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchvision.datasets import CocoDetection, CIFAR10, ImageNet
+from torchvision.datasets import CocoDetection, CIFAR10, ImageNet  # NOQA: F401
 from torchvision import transforms
 
 from yacs.config import CfgNode as CN
@@ -74,7 +74,7 @@ class Coco2017Dataset(torch.utils.data.Dataset):
 
         self.data_type = data_type
         self.num_class = num_class
-        ntreep.random.seed(256)
+        np.random.seed(256)
 
     def __getitem__(self, index: int, use_cropped: bool = True):
         if use_cropped:
@@ -145,7 +145,7 @@ class Optimizer(object):
         assert self.train_dl is not None
 
         self.device = torch.device(
-            f'cuda:0' if torch.cuda.is_available() else 'cpu'
+            f'cuda:{0}' if torch.cuda.is_available() else 'cpu'
         )
         logger.info(f'Device: {self.device}')
 
@@ -209,7 +209,7 @@ class Optimizer(object):
                     {
                         'model_state_dict': self.model.state_dict(),
                     },
-                    osp.join(self.log_dir, f'checkpoint.pth.tar'),
+                    osp.join(self.log_dir, 'checkpoint.pth.tar'),
                 )
 
     def train_one_epoch(self, epoch):
@@ -245,7 +245,7 @@ class Optimizer(object):
         with torch.no_grad():
             pass
 
-    def load_state_dict(self, path: str):
+    def load_state_dict(self, path: str, strict: bool = True):
         state_dict = torch.load(path, map_location=self.device)
         self.model.load_state_dict(state_dict, strict=strict)
 
@@ -260,7 +260,7 @@ def main(args):
     transforms = get_transforms()
     train_dl = DataLoader(
         # Coco2017Dataset(root=args.root),
-        # CIFAR10(root=args.root, train=True, download=False, transform=transforms['train']),
+        # CIFAR10(root=args.root, train=True, download=False, transform=transforms['train']),  # NOQA
         ImageNet(root=args.root, split='train', transform=transforms['train']),
         batch_size=batch_size,
         num_workers=num_workers,
@@ -268,16 +268,19 @@ def main(args):
     )
     val_dl = DataLoader(
         # Coco2017Dataset(root=args.root, data_type='val'),
-        # CIFAR10(root=args.root, train=False, download=False, transform=transforms['val']),
+        # CIFAR10(root=args.root, train=False, download=False, transform=transforms['val']),  # NOQA
         ImageNet(root=args.root, split='val', transform=transforms['val']),
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=False,
     )
+    assert val_dl
+
     optimizer = Optimizer(
         cfg=cfg,
         weight_path=args.weights,
-        train_dl=train_dl,  # val_dl=val_dl
+        train_dl=train_dl,
+        # val_dl=val_dl
     )
     optimizer()
 

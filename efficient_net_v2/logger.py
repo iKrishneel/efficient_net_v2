@@ -1,9 +1,7 @@
 #!/usr/bin/env python
-#! -*- coding: utf-8 -*-
 
 import datetime
 import logging
-import coloredlogs
 import termcolor
 
 

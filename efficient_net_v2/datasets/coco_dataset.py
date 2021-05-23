@@ -12,10 +12,26 @@ from detectron2.data import DatasetCatalog
 logger = logging.getLogger(__name__)
 
 LABELS = (
-    'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
-    'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
-    'horse', 'motorbike', 'person', 'pottedplant', 'sheep',
-    'sofa', 'train', 'tvmonitor'
+    'aeroplane',
+    'bicycle',
+    'bird',
+    'boat',
+    'bottle',
+    'bus',
+    'car',
+    'cat',
+    'chair',
+    'cow',
+    'diningtable',
+    'dog',
+    'horse',
+    'motorbike',
+    'person',
+    'pottedplant',
+    'sheep',
+    'sofa',
+    'train',
+    'tvmonitor',
 )
 
 
@@ -67,7 +83,9 @@ class CocoDataset(object):
 if __name__ == '__main__':
 
     import sys
+
     c = CocoDataset(coco_names=sys.argv[1])
 
     import IPython
+
     IPython.embed()

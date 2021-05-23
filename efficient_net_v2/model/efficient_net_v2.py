@@ -106,7 +106,7 @@ class EfficientNetV2(nn.Module):
             's3': s3,
             's4': s4,
             's5': s5,
-            's6': s6
+            's6': s6,
         }
 
     @property
@@ -118,5 +118,5 @@ class EfficientNetV2(nn.Module):
             's3': 11,
             's4': 17,
             's5': 26,
-            's6': 41
+            's6': 41,
         }

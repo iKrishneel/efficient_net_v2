@@ -59,10 +59,7 @@ class DatasetMapper(object):
             )
 
         if not self.is_train:
-            return dict(
-                image=image,
-                annotations=annotations
-            )
+            return dict(image=image, annotations=annotations)
 
         aug_input = T.AugInput(image, sem_seg=mask)
         transforms = aug_input.apply_augmentations(self._augmentation)

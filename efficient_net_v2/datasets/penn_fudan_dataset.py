@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import numpy as np
 
 import torch
-from torchvision import transforms
 from PIL import Image
 import cv2 as cv
 
@@ -108,9 +107,6 @@ class PennFudanDataset(object):
             area=area,
             iscrowd=iscrowd,
         )
-
-        # if self.transform is not None: im, target = self.transform(im, target)
-
         return im, target
 
     def __len__(self):

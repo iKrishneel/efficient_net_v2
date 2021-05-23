@@ -5,9 +5,7 @@ from typing import List
 import torch.nn as nn
 import torch.nn.functional as F
 
-from detectron2.modeling import (
-    BACKBONE_REGISTRY, Backbone, FPN, ShapeSpec
-)
+from detectron2.modeling import BACKBONE_REGISTRY, Backbone, FPN, ShapeSpec
 
 from .efficient_net_v2 import EfficientNetV2
 from ..layers import ConvBNA, FusedMBConv, MBConv
@@ -18,9 +16,7 @@ class EfficientNet(EfficientNetV2, Backbone):
     def __init__(self, cfg, out_features: List[str] = None):
         super(EfficientNet, self).__init__(cfg)
 
-        self.out_features = (
-            ['s6'] if out_features is None else out_features
-        )
+        self.out_features = ['s6'] if out_features is None else out_features
 
         self.strides = {}
         self.channels = {}
@@ -30,7 +26,8 @@ class EfficientNet(EfficientNetV2, Backbone):
             for child in self.backbone[:index].children():
                 if isinstance(child, (ConvBNA, FusedMBConv, MBConv)):
                     stride, channel = (
-                        stride * child.stride, child.out_channels
+                        stride * child.stride,
+                        child.out_channels,
                     )
             self.strides[key] = stride
             self.channels[key] = channel
@@ -41,14 +38,13 @@ class EfficientNet(EfficientNetV2, Backbone):
         return {
             name: ShapeSpec(
                 channels=self.channels[name], stride=self.strides[name]
-            ) for name in self.out_features
+            )
+            for name in self.out_features
         }
 
     def forward(self, x):
         features = self.stage_forward(x)
-        return {
-            name: features[name] for name in self.out_features
-        }
+        return {name: features[name] for name in self.out_features}
 
     def freeze(self, at: int = 0):
         # TODO: freeze at selected layer

@@ -19,7 +19,7 @@ MODEL:
     MIN_SIZE: 4
   ANCHOR_GENERATOR:
     SIZES: [[32], [64], [256], [512]]
-    ASPECT_RATIOS: [[0.5, 1.0, 2.0]] 
+    ASPECT_RATIOS: [[0.5, 1.0, 2.0]]
   RETINANET:
     NUM_CLASSES: &num_classes 80
     IOU_THRESHOLDS: [0.4, 0.5]
