@@ -45,7 +45,6 @@ class EfficientNet(EfficientNetV2, Backbone):
         }
 
     def forward(self, x):
-        # return {'stage7': super().forward(x)}
         features = self.stage_forward(x)
         return {
             name: features[name] for name in self.out_features

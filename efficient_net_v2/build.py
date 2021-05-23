@@ -198,6 +198,7 @@ def main(args):
         register_dataset(dataset_name='coco_2017_val_20', is_train=False)
 
     trainer = Trainer(cfg)
+
     # trainer = DefaultTrainer(cfg)
     trainer.resume_or_load(resume=args.resume)
     return trainer.train()

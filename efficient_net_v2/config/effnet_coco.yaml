@@ -11,12 +11,17 @@ MODEL:
     IN_FEATURES: ["s2", "s3", "s5", "s6"]
   RPN:
     IN_FEATURES: ["p2", "p3", "p4", "p5"]
-    PRE_NMS_TOPK_TRAIN: 12000
-    POST_NMS_TOPK_TRAIN: 1000    
+    PRE_NMS_TOPK_TRAIN: 2000
+    POST_NMS_TOPK_TRAIN: 1000
+    CONV_DIMS: [256, 512, 256]
   PROPOSAL_GENERATOR:
-    NAME: "RPN"    
+    NAME: "RPN"
+    MIN_SIZE: 4
+  ANCHOR_GENERATOR:
+    SIZES: [[32], [64], [256], [512]]
+    ASPECT_RATIOS: [[0.5, 1.0, 2.0]] 
   RETINANET:
-    NUM_CLASSES: &num_classes 20
+    NUM_CLASSES: &num_classes 80
     IOU_THRESHOLDS: [0.4, 0.5]
     IOU_LABELS: [0, -1, 1]
     SMOOTH_L1_LOSS_BETA: 0.0
@@ -26,8 +31,8 @@ MODEL:
     NAME: "StandardROIHeads"
   ROI_BOX_HEAD:
     NAME: "FastRCNNConvFCHead"
-    NUM_FC: 2
-    NUM_CONV: 1
+    NUM_FC: 0
+    NUM_CONV: 3
     NORM: ""
     POOLER_RESOLUTION: 7
   ROI_MASK_HEAD:
@@ -41,19 +46,24 @@ MODEL:
   SEM_SEG_HEAD:
     NUM_CLASSES: *num_classes
   MASK_ON: False
-  LOAD_PROPOSALS: False    
+  LOAD_PROPOSALS: False
   WEIGHTS: ""    
 SOLVER:
-  IMS_PER_BATCH: 12
-  BASE_LR: 0.0005
-  STEPS: (60000, 800000)
+  AMP:
+    ENABLED: True
+  IMS_PER_BATCH: 20
+  BASE_LR: 0.02
+  STEPS: (30000, 60000)
   MAX_ITER: 100000
+  NESTEROV: False
   WARMUP_ITERS: 0
   CHECKPOINT_PERIOD: 5000
 DATALOADER:
   NUM_WORKERS: 8
 DATASETS:
-  TRAIN: ("coco_2017_train_20", )  
-  TEST: ("coco_2017_val_20", )
+  TRAIN: ("coco_2017_train", ) 
+  TEST: ("coco_2017_val", )
+  # PROPOSAL_FILES_TRAIN: ("detectron2://COCO-Detection/rpn_R_50_FPN_1x/137258492/coco_2017_train_box_proposals_21bc3a.pkl", )
+  # PROPOSAL_FILES_TEST: ("detectron2://COCO-Detection/rpn_R_50_FPN_1x/137258492/coco_2017_val_box_proposals_ee0dad.pkl", )
   # TRAIN: ("penn_fudan", )
   # TEST: ("penn_fudan_test",)

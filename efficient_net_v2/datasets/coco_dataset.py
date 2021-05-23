@@ -11,7 +11,7 @@ from detectron2.data import DatasetCatalog
 
 logger = logging.getLogger(__name__)
 
-__labels__ = (
+LABELS = (
     'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
     'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
     'horse', 'motorbike', 'person', 'pottedplant', 'sheep',
@@ -35,7 +35,7 @@ class CocoDataset(object):
         self.class_label = {}
         self.match_index = {}
         for i, line in enumerate(lines, 1):
-            if line not in __labels__:
+            if line not in LABELS:
                 continue
             self.class_label[line] = i
             self.match_index[i] = [len(self.match_index) + 1, line]
@@ -68,6 +68,6 @@ if __name__ == '__main__':
 
     import sys
     c = CocoDataset(coco_names=sys.argv[1])
-    
+
     import IPython
     IPython.embed()
