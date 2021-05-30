@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import time
 from collections import Counter
 from dataclasses import dataclass
@@ -26,8 +27,7 @@ from detectron2.engine import (
     default_setup,
     launch,
 )
-
-# from detectron2.solver import build_lr_scheduler as build_d2_lr_scheduler
+from detectron2.evaluation import COCOEvaluator
 
 from efficient_net_v2.model.backbone import build_effnet_backbone  # NOQA
 
@@ -76,10 +76,12 @@ class AccumGradAMPTrainer(AMPTrainer):
     def run_step(self):
         cls_name = self.__class__.__name__
 
-        assert self.model.training, \
-            f'[{cls_name}] model was changed to eval mode!'
-        assert torch.cuda.is_available(), \
-            f'[{cls_name}] CUDA is required for AMP Training'
+        assert (
+            self.model.training
+        ), f'[{cls_name}] model was changed to eval mode!'
+        assert (
+            torch.cuda.is_available()
+        ), f'[{cls_name}] CUDA is required for AMP Training'
 
         start = time.perf_counter()
         data_time = time.perf_counter() - start
@@ -156,11 +158,17 @@ class Trainer(DefaultTrainer):
             )
         return build_detection_train_loader(cfg, mapper=mapper)
 
-    """
     @classmethod
-    def build_lr_schedule(cls, cfg: CfgNode, optim: Optimizer):
-        return build_d2_lr_scheduler(cfg, optimizer)
-    """
+    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
+        if output_folder is None:
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+        evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
+
+        if evaluator_type == 'coco':
+            evaluator = COCOEvaluator(dataset_name=dataset_name)
+        else:
+            raise ValueError('Evaluator type is unknown!')
+        return evaluator
 
     @classmethod
     def build_augmentation(cls, cfg: CfgNode, is_train: bool = True):
