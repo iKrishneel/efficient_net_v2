@@ -10,6 +10,45 @@ Architecture of the network for detection.
 # Coco Results
 The results of detection on [2017 COCO](https://cocodataset.org/#download) detection dataset.
 
+<p float="left">
+	<img src=.github/assets/00000000.png width="24%" height="200" />
+	<img src=.github/assets/00000017.png width="24%" height="200" />
+	<img src=.github/assets/00000843.png width="24%" height="200" />
+	<img src=.github/assets/00000846.png width="24%" height="200" />
+	<img src=.github/assets/00000848.png width="24%" height="200" />
+	<img src=.github/assets/00000860.png width="24%" height="200" />
+	<img src=.github/assets/00001054.png width="24%" height="200" />
+	<img src=.github/assets/00001130.png width="24%" height="200" />
+	<img src=.github/assets/00001207.png width="24%" height="200" />
+	<img src=.github/assets/00001551.png width="24%" height="200" />
+	<img src=.github/assets/00001743.png width="24%" height="200" />
+	<img src=.github/assets/00001827.png width="24%" height="200" />
+	<img src=.github/assets/00001834.png width="24%" height="200" />
+	<img src=.github/assets/00001889.png width="24%" height="200" />
+	<img src=.github/assets/00001965.png width="24%" height="200" />
+	<img src=.github/assets/00002018.png width="24%" height="200" />
+	<img src=.github/assets/00002083.png width="24%" height="200" />
+	<img src=.github/assets/00002152.png width="24%" height="200" />
+	<img src=.github/assets/00002207.png width="24%" height="200" />
+	<img src=.github/assets/00002317.png width="24%" height="200" />
+	<img src=.github/assets/00002381.png width="24%" height="200" />
+	<img src=.github/assets/00002805.png width="24%" height="200" />
+	<img src=.github/assets/00003041.png width="24%" height="200" />
+	<img src=.github/assets/00003250.png width="24%" height="200" />
+	<img src=.github/assets/00003501.png width="24%" height="200" />
+	<img src=.github/assets/00003577.png width="24%" height="200" />
+	<img src=.github/assets/00003865.png width="24%" height="200" />
+	<img src=.github/assets/00003884.png width="24%" height="200" />
+	<img src=.github/assets/00003953.png width="24%" height="200" />
+	<img src=.github/assets/00004073.png width="24%" height="200" />
+	<img src=.github/assets/00004086.png width="24%" height="200" />
+	<img src=.github/assets/00004210.png width="24%" height="200" />
+	<img src=.github/assets/00004237.png width="24%" height="200" />
+	<img src=.github/assets/00004481.png width="24%" height="200" />
+	<img src=.github/assets/00004684.png width="24%" height="200" />
+	<img src=.github/assets/00004794.png width="24%" height="200" />
+</p>
+
 # Requirements
 - [pytorch >= 1.7](https://github.com/pytorch/pytorch)
 - [torchvision >= 0.8.2](https://github.com/pytorch/vision) 
